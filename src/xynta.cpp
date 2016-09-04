@@ -12,6 +12,7 @@
 #include <set>
 #include <string>
 #include <system_error>
+#include <unordered_map>
 #include <utility> 	// swap
 
 #include "fs.hpp"
@@ -78,16 +79,16 @@ static int xynta_readdir(
                 std::swap(files, tmp);
                 tmp.clear();
             }
+            std::unordered_map<std::string, size_t> tag_count;
             for (const auto& file: files) {
                 filler(buf, file.c_str(), 0, 0);
-                const auto& tags = fs->tags(file);
-                tmp.insert(tags.begin(), tags.end());
+                for (const auto& tag :fs->tags(file)) {
+                    ++tag_count[tag];
+                }
             }
-            if (files.size() > 1) {
-                for (const auto& tag: tmp) {
-                    if (tags.find(tag) == tags.end()) {
-                        filler(buf, tag.c_str(), 0, 0);
-                    }
+            for (const auto& tag: tag_count) {
+                if (tag.second < files.size()) {
+                    filler(buf, tag.first.c_str(), 0, 0);
                 }
             }
         } catch (std::system_error& e) {
