@@ -83,9 +83,11 @@ static int xynta_readdir(
                 const auto& tags = fs->tags(file);
                 tmp.insert(tags.begin(), tags.end());
             }
-            for (const auto& tag: tmp) {
-                if (tags.find(tag) == tags.end()) {
-                    filler(buf, tag.c_str(), 0, 0);
+            if (files.size() > 1) {
+                for (const auto& tag: tmp) {
+                    if (tags.find(tag) == tags.end()) {
+                        filler(buf, tag.c_str(), 0, 0);
+                    }
                 }
             }
         } catch (std::system_error& e) {
