@@ -1,6 +1,6 @@
 # XYNTA FS
 ## Overview
-Tired of tons of disorganized exploitable memes pictures on your hard drive, but can't remember where you saved appropriate ones when you're so desperately need them? Forget about this pain. XYNTA FS will help you to organize your pictures, photos, books and documents so you could find desired one in no time.
+Tired of tons of disorganized exploitable memes pictures on your hard drive, but can't remember where you saved appropriate ones when you so desperately need them? Forget about this pain. XYNTA FS will help you to organize your pictures, photos, books and documents so you could find desired one in no time.
 ## How does it work?
 If your eyes a red enough, you probably heard about extended file attributes in Linux. If they are crimson red, then you know what is File System in Userspace. So, this is what you are going to do with your files:
 
