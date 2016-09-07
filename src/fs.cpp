@@ -4,7 +4,7 @@
 #include <sys/types.h>  // DIR
 #include <sys/xattr.h>  // getxattr
 
-#include <algorithm>    // sort & unique
+#include <algorithm>    // sort & unique & lower_bound
 #include <iterator>     // move_iterator
 #include <memory>       // unique_ptr
 #include <set>
@@ -67,7 +67,6 @@ xynta::fs::fs(std::string&& root)
     : root(root + '/')
 {
     dir d(this->root.c_str());
-    std::unordered_map<std::string, std::set<std::string>> tag_files;
     while (struct dirent* dirent = d.next()) {
         if (*dirent->d_name != '.') {
             std::string filename{dirent->d_name};
@@ -75,7 +74,14 @@ xynta::fs::fs(std::string&& root)
             auto tags = load_tags((this->root + filename).c_str());
             all_tags.insert(tags.begin(), tags.end());
             for (const auto& tag: tags) {
-                tag_files[tag].insert(filename);
+                // accumulating in set with later move to vector is not used
+                // because make_move_iterator broken in gcc++-4.9.3
+                auto& files = tag_files[tag];
+                auto pos =
+                    std::lower_bound(files.begin(), files.end(), filename);
+                if (pos == files.end() || *pos != filename) {
+                    files.insert(pos, filename);
+                }
             }
             file_tags.emplace(std::move(filename), std::move(tags));
         }
@@ -85,13 +91,6 @@ xynta::fs::fs(std::string&& root)
         if (file_tags.find(tag) != file_tags.end()) {
             throw std::logic_error("Duplicated tag and file name: " + tag);
         }
-    }
-
-    for (auto& tag: tag_files) {
-        std::vector<std::string> tags{
-            std::make_move_iterator(tag.second.begin()),
-            std::make_move_iterator(tag.second.end())};
-        this->tag_files.emplace(std::move(tag.first), std::move(tags));
     }
 }
 

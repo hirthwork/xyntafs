@@ -1,7 +1,7 @@
 #include <errno.h>
 #include <fcntl.h>      // open
 #include <fuse.h>
-#include <string.h>     // strrchr
+#include <string.h>     // strrchr & memset
 #include <sys/stat.h>
 #include <unistd.h>     // close
 
@@ -67,7 +67,7 @@ static int xynta_readdir(
         try {
             auto tags = xynta::split(path + 1, '/');
             auto iter = tags.begin();
-            auto files{fs->files(*iter++)};
+            std::vector<std::string> files{fs->files(*iter++)};
             std::vector<std::string> tmp;
             while (iter != tags.end()) {
                 const auto& tag_files = fs->files(*iter++);
@@ -151,7 +151,8 @@ static int xynta_read(
 int main(int argc, char* argv[]) {
     xynta::fs fs(argv[1]);
     ::fs = &fs;
-    struct fuse_operations ops = {};
+    struct fuse_operations ops;
+    memset(&ops, 0, sizeof ops);
     ops.getattr = xynta_getattr;
     ops.readdir = xynta_readdir;
     ops.open = xynta_open;
