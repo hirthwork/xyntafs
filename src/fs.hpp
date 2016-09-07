@@ -5,18 +5,20 @@
 #include <string>
 #include <system_error>
 #include <unordered_map>
+#include <vector>
 
 namespace xynta {
 
 class fs {
     std::set<std::string> all_tags;
     std::set<std::string> all_files;
-    std::unordered_map<std::string, std::set<std::string>> tag_files;
-    std::unordered_map<std::string, std::set<std::string>> file_tags;
+    std::unordered_map<std::string, std::vector<std::string>> tag_files;
+    std::unordered_map<std::string, std::vector<std::string>> file_tags;
 
-    static const std::set<std::string>& find(
-        const std::unordered_map<std::string, std::set<std::string>>& map,
-        const std::string& key)
+    template <class K>
+    static const std::vector<std::string>& find(
+        const std::unordered_map<std::string, std::vector<std::string>>& map,
+        const K& key)
     {
         auto iter = map.find(key);
         if (iter == map.end()) {
@@ -40,12 +42,14 @@ public:
         return all_files;
     }
 
-    const std::set<std::string>& tags(const std::string& file) const {
-        return find(file_tags, file);
+    template <class K>
+    const std::vector<std::string>& tags(const K& file) const {
+	return find(file_tags, file);
     }
 
-    const std::set<std::string>& files(const std::string& tag) const {
-        return find(tag_files, tag);
+    template <class K>
+    const std::vector<std::string>& files(const K& tag) const {
+	return find(tag_files, tag);
     }
 
     bool is_file(const std::string& file) const {

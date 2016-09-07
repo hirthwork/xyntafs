@@ -9,11 +9,11 @@
 #include <iostream>
 #include <iterator> 	// inserter
 #include <new>          // bad_alloc
-#include <set>
 #include <string>
 #include <system_error>
 #include <unordered_map>
 #include <utility> 	// swap
+#include <vector>
 
 #include "fs.hpp"
 #include "util.hpp"
@@ -33,7 +33,6 @@ static int xynta_getattr(const char* path, struct stat* stat) {
                     rc = -errno;
                 }
             } else {
-                std::set<std::string> files = fs->files(name);
                 memset(stat, 0, sizeof(struct stat));
                 stat->st_mode = S_IFDIR | 0755;
                 // TODO: fair links counting
@@ -66,23 +65,23 @@ static int xynta_readdir(
     int rc = 0;
     if (path[1]) {
         try {
-            std::set<std::string> tags = xynta::split(path + 1, "/");
+            auto tags = xynta::split(path + 1, '/');
             auto iter = tags.begin();
             auto files{fs->files(*iter++)};
-            std::set<std::string> tmp;
+            std::vector<std::string> tmp;
             while (iter != tags.end()) {
                 const auto& tag_files = fs->files(*iter++);
                 std::set_intersection(
                     files.begin(), files.end(),
                     tag_files.begin(), tag_files.end(),
-                    std::inserter(tmp, tmp.begin()));
+                    std::back_inserter(tmp));
                 std::swap(files, tmp);
                 tmp.clear();
             }
             std::unordered_map<std::string, size_t> tag_count;
             for (const auto& file: files) {
                 filler(buf, file.c_str(), 0, 0);
-                for (const auto& tag :fs->tags(file)) {
+                for (const auto& tag: fs->tags(file)) {
                     ++tag_count[tag];
                 }
             }
