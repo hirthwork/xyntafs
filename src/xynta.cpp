@@ -24,19 +24,19 @@ static int xynta_getattr(const char* path, struct stat* stat) {
     if (path[1]) {
         try {
             std::string name{strrchr(path, '/') + 1};
-            if (fs->is_file(name)) {
-                rc = ::stat((fs->root + name).c_str(), stat);
-                if (rc == 0) {
-                    stat->st_mode &= ~0222;
-                } else {
-                    rc = -errno;
-                }
-            } else {
+            if (fs->is_tag(name)) {
                 memset(stat, 0, sizeof(struct stat));
                 stat->st_mode = S_IFDIR | 0755;
                 // TODO: fair links counting
                 stat->st_nlink = 2;
                 rc = 0;
+            } else {
+                rc = ::stat(fs->file_info(name).path.c_str(), stat);
+                if (rc == 0) {
+                    stat->st_mode &= ~0222;
+                } else {
+                    rc = -errno;
+                }
             }
         } catch (std::system_error& e) {
             rc = -e.code().value();
@@ -80,7 +80,7 @@ static int xynta_readdir(
             std::unordered_map<std::string, size_t> tag_count;
             for (const auto& file: files) {
                 filler(buf, file.c_str(), 0, 0);
-                for (const auto& tag: fs->tags(file)) {
+                for (const auto& tag: fs->file_info(file).tags) {
                     ++tag_count[tag];
                 }
             }
@@ -107,23 +107,24 @@ static int xynta_readdir(
 
 static int xynta_open(const char* path, struct fuse_file_info* fi) {
     int rc;
-    try {
-        std::string name{strrchr(path, '/') + 1};
-        if (!fs->is_file(name)) {
-            rc = -ENOENT;
-        } else if ((fi->flags & 3) != O_RDONLY) {
-            rc = -EACCES;
-        } else {
-            int fd = open((fs->root + name).c_str(), fi->flags);
+    if ((fi->flags & 3) != O_RDONLY) {
+        rc = -EACCES;
+    } else {
+        try {
+            int fd = open(
+                fs->file_info(strrchr(path, '/') + 1).path.c_str(),
+                fi->flags);
             if (fd == -1) {
                 rc = -errno;
             } else {
                 rc = 0;
                 fi->fh = fd;
             }
+        } catch (std::system_error& e) {
+            rc = -e.code().value();
+        } catch (std::bad_alloc& e) {
+            rc = -ENOMEM;
         }
-    } catch (std::bad_alloc& e) {
-        rc = -ENOMEM;
     }
     return rc;
 }

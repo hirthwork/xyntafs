@@ -8,17 +8,19 @@
 
 namespace xynta {
 
+struct file {
+    const std::string path;
+    const std::vector<std::string> tags;
+};
+
 class fs {
     std::vector<std::string> all_tags;
     std::vector<std::string> all_files;
     std::unordered_map<std::string, std::vector<std::string>> tag_files;
-    std::unordered_map<std::string, std::vector<std::string>> file_tags;
+    std::unordered_map<std::string, file> file_infos;
 
-    template <class K>
-    static const std::vector<std::string>& find(
-        const std::unordered_map<std::string, std::vector<std::string>>& map,
-        const K& key)
-    {
+    template <class M, class K>
+    static const auto& find(const M& map, const K& key) {
         auto iter = map.find(key);
         if (iter == map.end()) {
             throw std::system_error(
@@ -28,10 +30,11 @@ class fs {
         }
     }
 
-public:
-    const std::string root;
+    void process_dir(const std::string& root);
+    void process_file(std::string&& path, std::string&& filename);
 
-    fs(std::string&& root);
+public:
+    fs(std::string root);
 
     const std::vector<std::string>& tags() const {
         return all_tags;
@@ -42,8 +45,8 @@ public:
     }
 
     template <class K>
-    const std::vector<std::string>& tags(const K& file) const {
-	return find(file_tags, file);
+    const file& file_info(const K& file) const {
+	return find(file_infos, file);
     }
 
     template <class K>
@@ -51,8 +54,8 @@ public:
 	return find(tag_files, tag);
     }
 
-    bool is_file(const std::string& file) const {
-        return file_tags.find(file) != file_tags.end();
+    bool is_tag(const std::string& tag) const {
+        return tag_files.find(tag) != tag_files.end();
     }
 };
 
