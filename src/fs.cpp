@@ -7,7 +7,6 @@
 #include <algorithm>    // sort & unique & lower_bound
 #include <iterator>     // move_iterator
 #include <memory>       // unique_ptr
-#include <set>
 #include <string>
 #include <system_error>
 #include <utility>      // move
@@ -63,6 +62,13 @@ static std::vector<std::string> load_tags(const char* path) {
     }
 }
 
+static void insert(std::vector<std::string>& data, const std::string& str) {
+    auto pos = std::lower_bound(data.begin(), data.end(), str);
+    if (pos == data.end() || *pos != str) {
+        data.insert(pos, str);
+    }
+}
+
 xynta::fs::fs(std::string&& root)
     : root(root + '/')
 {
@@ -70,18 +76,11 @@ xynta::fs::fs(std::string&& root)
     while (struct dirent* dirent = d.next()) {
         if (*dirent->d_name != '.') {
             std::string filename{dirent->d_name};
-            all_files.insert(filename);
+            insert(all_files, filename);
             auto tags = load_tags((this->root + filename).c_str());
-            all_tags.insert(tags.begin(), tags.end());
             for (const auto& tag: tags) {
-                // accumulating in set with later move to vector is not used
-                // because make_move_iterator broken in gcc++-4.9.3
-                auto& files = tag_files[tag];
-                auto pos =
-                    std::lower_bound(files.begin(), files.end(), filename);
-                if (pos == files.end() || *pos != filename) {
-                    files.insert(pos, filename);
-                }
+                insert(all_tags, tag);
+                insert(tag_files[tag], filename);
             }
             file_tags.emplace(std::move(filename), std::move(tags));
         }

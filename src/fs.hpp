@@ -1,7 +1,6 @@
 #ifndef __XYNTA_FS_HPP__
 #define __XYNTA_FS_HPP__
 
-#include <set>
 #include <string>
 #include <system_error>
 #include <unordered_map>
@@ -10,8 +9,8 @@
 namespace xynta {
 
 class fs {
-    std::set<std::string> all_tags;
-    std::set<std::string> all_files;
+    std::vector<std::string> all_tags;
+    std::vector<std::string> all_files;
     std::unordered_map<std::string, std::vector<std::string>> tag_files;
     std::unordered_map<std::string, std::vector<std::string>> file_tags;
 
@@ -34,11 +33,11 @@ public:
 
     fs(std::string&& root);
 
-    const std::set<std::string>& tags() const {
+    const std::vector<std::string>& tags() const {
         return all_tags;
     }
 
-    const std::set<std::string>& files() const {
+    const std::vector<std::string>& files() const {
         return all_files;
     }
 
