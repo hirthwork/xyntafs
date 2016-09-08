@@ -13,7 +13,6 @@
 #include <system_error>
 #include <unordered_map>
 #include <utility> 	// swap
-#include <vector>
 
 #include "fs.hpp"
 #include "util.hpp"
@@ -67,8 +66,8 @@ static int xynta_readdir(
         try {
             auto tags = xynta::split(path + 1, '/');
             auto iter = tags.begin();
-            std::vector<std::string> files{fs->files(*iter++)};
-            std::vector<std::string> tmp;
+            auto files = fs->files(*iter++);
+            decltype(files) tmp;
             while (iter != tags.end()) {
                 const auto& tag_files = fs->files(*iter++);
                 std::set_intersection(
