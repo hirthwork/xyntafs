@@ -15,7 +15,32 @@
 #include <utility> 	// swap
 
 #include "fs.hpp"
-#include "util.hpp"
+
+// TODO: SPEED: split into substring objects in order to avoid allocations
+static std::vector<std::string> split(const char* str) {
+    std::vector<std::string> tags;
+    std::string tmp;
+    while (true) {
+        char c = *str++;
+        switch (c) {
+            case '\0':
+                if (!tmp.empty()) {
+                    tags.emplace_back(std::move(tmp));
+                }
+                return tags;
+                break;
+            case '/':
+                if (!tmp.empty()) {
+                    tags.emplace_back(std::move(tmp));
+                    tmp.clear();
+                }
+                break;
+            default:
+                tmp.push_back(c);
+                break;
+        }
+    }
+}
 
 static const xynta::fs* fs;
 
@@ -64,7 +89,7 @@ static int xynta_readdir(
     int rc = 0;
     if (path[1]) {
         try {
-            auto tags = xynta::split(path + 1, '/');
+            auto tags = split(path + 1);
             auto iter = tags.begin();
             auto files = fs->files(*iter++);
             decltype(files) tmp;

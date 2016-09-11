@@ -14,7 +14,6 @@
 #include <vector>
 
 #include "fs.hpp"
-#include "util.hpp"
 
 #define TAGS_ATTRIBUTE "user.xynta.tags"
 
@@ -39,6 +38,54 @@ public:
     }
 };
 
+static std::vector<std::string> split(const char* str) {
+    std::vector<std::string> tags;
+    std::string tmp;
+    bool escaped = false;
+    while (true) {
+        char c = *str++;
+        if (escaped) {
+            switch (c) {
+                case '\0':
+                    tmp.push_back('\\');
+                    tags.emplace_back(std::move(tmp));
+                    return tags;
+                case ' ':
+                    tmp.push_back(' ');
+                    break;
+                case '\\':
+                    tmp.push_back('\\');
+                    break;
+                default:
+                    tmp.push_back('\\');
+                    tmp.push_back(c);
+                    break;
+            }
+            escaped = false;
+        } else {
+            switch (c) {
+                case '\0':
+                    if (!tmp.empty()) {
+                        tags.emplace_back(std::move(tmp));
+                    }
+                    return tags;
+                case ' ':
+                    if (!tmp.empty()) {
+                        tags.emplace_back(std::move(tmp));
+                        tmp.clear();
+                    }
+                    break;
+                case '\\':
+                    escaped = true;
+                    break;
+                default:
+                    tmp.push_back(c);
+                    break;
+            }
+        }
+    }
+}
+
 static std::vector<std::string> load_tags(const char* path) {
     ssize_t size = getxattr(path, TAGS_ATTRIBUTE, 0, 0);
     while (true) {
@@ -55,7 +102,7 @@ static std::vector<std::string> load_tags(const char* path) {
             size = new_size;
         } else {
             value.get()[new_size] = 0;
-            auto tags = xynta::split(value.get(), ' ');
+            auto tags = split(value.get());
             std::sort(tags.begin(), tags.end());
             tags.erase(std::unique(tags.begin(), tags.end()), tags.end());
             return tags;
