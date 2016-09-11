@@ -30,8 +30,13 @@ class fs {
         }
     }
 
-    void process_dir(const std::string& root);
-    void process_file(std::string&& path, std::string&& filename);
+    void process_dir(
+        const std::vector<std::string>& tags,
+        const std::string& root);
+    void process_file(
+        std::vector<std::string>&& tags,
+        std::string&& path,
+        std::string&& filename);
 
 public:
     fs(std::string root);

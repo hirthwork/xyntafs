@@ -1,6 +1,5 @@
 #include <dirent.h>
 #include <errno.h>
-#include <string.h>     // strtok
 #include <sys/stat.h>
 #include <sys/types.h>  // DIR
 #include <sys/xattr.h>  // getxattr
@@ -38,8 +37,7 @@ public:
     }
 };
 
-static std::vector<std::string> split(const char* str) {
-    std::vector<std::string> tags;
+static void split(std::vector<std::string>& tags, const char* str) {
     std::string tmp;
     bool escaped = false;
     while (true) {
@@ -49,7 +47,7 @@ static std::vector<std::string> split(const char* str) {
                 case '\0':
                     tmp.push_back('\\');
                     tags.emplace_back(std::move(tmp));
-                    return tags;
+                    return;
                 case ' ':
                     tmp.push_back(' ');
                     break;
@@ -68,7 +66,7 @@ static std::vector<std::string> split(const char* str) {
                     if (!tmp.empty()) {
                         tags.emplace_back(std::move(tmp));
                     }
-                    return tags;
+                    return;
                 case ' ':
                     if (!tmp.empty()) {
                         tags.emplace_back(std::move(tmp));
@@ -86,7 +84,7 @@ static std::vector<std::string> split(const char* str) {
     }
 }
 
-static std::vector<std::string> load_tags(const char* path) {
+static void load_tags(std::vector<std::string>& tags, const char* path) {
     ssize_t size = getxattr(path, TAGS_ATTRIBUTE, 0, 0);
     while (true) {
         auto value = std::make_unique<char[]>(size + 1);
@@ -94,7 +92,7 @@ static std::vector<std::string> load_tags(const char* path) {
         if (new_size < 0) {
             int err = errno;
             if (err == ENODATA) {
-                return {};
+                return;
             } else {
                 throw std::system_error(err, std::system_category());
             }
@@ -102,10 +100,10 @@ static std::vector<std::string> load_tags(const char* path) {
             size = new_size;
         } else {
             value.get()[new_size] = 0;
-            auto tags = split(value.get());
+            split(tags, value.get());
             std::sort(tags.begin(), tags.end());
             tags.erase(std::unique(tags.begin(), tags.end()), tags.end());
-            return tags;
+            return;
         }
     }
 }
@@ -119,7 +117,7 @@ static void insert(std::vector<std::string>& data, const std::string& str) {
 
 xynta::fs::fs(std::string root) {
     root.push_back('/');
-    process_dir(root);
+    process_dir({}, root);
     std::sort(all_files.begin(), all_files.end());
     for (const auto& tag: all_tags) {
         if (file_infos.find(tag) != file_infos.end()) {
@@ -128,19 +126,32 @@ xynta::fs::fs(std::string root) {
     }
 }
 
-void xynta::fs::process_dir(const std::string& root) {
+void xynta::fs::process_dir(
+    const std::vector<std::string>& tags,
+    const std::string& root)
+{
     dir d(root.c_str());
     while (struct dirent* dirent = d.next()) {
         if (*dirent->d_name != '.') {
-            auto path = root + dirent->d_name;
+            auto current_tags = tags;
+            std::string name{dirent->d_name};
+            auto path = root + name;
             struct stat stat;
             if (::stat(path.c_str(), &stat)) {
                 throw std::system_error(errno, std::system_category());
             } else if (stat.st_mode & S_IFREG) {
-                process_file(std::move(path), dirent->d_name);
+                auto pos = name.rfind('.');
+                if (pos != std::string::npos && pos + 1 < name.size()) {
+                    current_tags.emplace_back(name.substr(pos + 1));
+                }
+                process_file(
+                    std::move(current_tags),
+                    std::move(path),
+                    std::move(name));
             } else if (stat.st_mode & S_IFDIR) {
                 path.push_back('/');
-                process_dir(path);
+                current_tags.emplace_back(std::move(name));
+                process_dir(current_tags, path);
             } else {
                 throw std::logic_error(
                     "Don't know how to process " + path
@@ -150,9 +161,13 @@ void xynta::fs::process_dir(const std::string& root) {
     }
 }
 
-void xynta::fs::process_file(std::string&& path, std::string&& filename) {
+void xynta::fs::process_file(
+    std::vector<std::string>&& tags,
+    std::string&& path,
+    std::string&& filename)
+{
     all_files.push_back(filename);
-    auto tags = load_tags(path.c_str());
+    load_tags(tags, path.c_str());
     for (const auto& tag: tags) {
         insert(all_tags, tag);
         insert(tag_files[tag], filename);
