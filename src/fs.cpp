@@ -63,19 +63,17 @@ static std::vector<std::string> load_tags(const char* path) {
     }
 }
 
-static bool insert(std::vector<std::string>& data, const std::string& str) {
+static void insert(std::vector<std::string>& data, const std::string& str) {
     auto pos = std::lower_bound(data.begin(), data.end(), str);
-    if (pos != data.end() && *pos == str) {
-        return false;
-    } else {
+    if (pos == data.end() || *pos != str) {
         data.insert(pos, str);
-        return true;
     }
 }
 
 xynta::fs::fs(std::string root) {
     root.push_back('/');
     process_dir(root);
+    std::sort(all_files.begin(), all_files.end());
     for (const auto& tag: all_tags) {
         if (file_infos.find(tag) != file_infos.end()) {
             throw std::logic_error("Duplicated tag and file name: " + tag);
@@ -106,18 +104,19 @@ void xynta::fs::process_dir(const std::string& root) {
 }
 
 void xynta::fs::process_file(std::string&& path, std::string&& filename) {
-    if (!insert(all_files, filename)) {
-        throw std::logic_error(
-            "File names collision: " + path
-            + " and " + file_infos[filename].path);
-    }
+    all_files.push_back(filename);
     auto tags = load_tags(path.c_str());
     for (const auto& tag: tags) {
         insert(all_tags, tag);
         insert(tag_files[tag], filename);
     }
-    file_infos.emplace(
+    auto emplace_result = file_infos.emplace(
         std::move(filename),
-        file{std::move(path), std::move(tags)});
+        file{path, std::move(tags)});
+    if (!emplace_result.second) {
+        throw std::logic_error(
+            "File names collision: " + path
+            + " and " + emplace_result.first->second.path);
+    }
 }
 
