@@ -1,8 +1,9 @@
 #include <dirent.h>
-#include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>  // DIR
 #include <sys/xattr.h>  // getxattr
+
+#include <cerrno>
 
 #include <algorithm>    // sort & unique & lower_bound
 #include <memory>       // make_unique

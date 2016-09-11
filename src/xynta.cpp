@@ -1,9 +1,10 @@
-#include <errno.h>
 #include <fcntl.h>      // open
 #include <fuse.h>
-#include <string.h>     // strrchr & memset
 #include <sys/stat.h>
 #include <unistd.h>     // close
+
+#include <cerrno>
+#include <cstring>      // strrchr & memset
 
 #include <algorithm>    // set_intersection
 #include <iostream>
@@ -42,6 +43,18 @@ static std::vector<std::string> split(const char* str) {
     }
 }
 
+static int exception_to_errno() {
+    try {
+        throw;
+    } catch (std::system_error& e) {
+        return e.code().value();
+    } catch (std::bad_alloc& e) {
+        return ENOMEM;
+    } catch (...) {
+        return EINVAL;
+    }
+}
+
 static const xynta::fs* fs;
 
 static int xynta_getattr(const char* path, struct stat* stat) {
@@ -63,10 +76,8 @@ static int xynta_getattr(const char* path, struct stat* stat) {
                     rc = -errno;
                 }
             }
-        } catch (std::system_error& e) {
-            rc = -e.code().value();
-        } catch (std::bad_alloc& e) {
-            rc = -ENOMEM;
+        } catch (...) {
+            rc = -exception_to_errno();
         }
     } else {
         memset(stat, 0, sizeof(struct stat));
@@ -114,10 +125,8 @@ static int xynta_readdir(
                     filler(buf, tag.first.c_str(), 0, 0);
                 }
             }
-        } catch (std::system_error& e) {
-            rc = -e.code().value();
-        } catch (std::bad_alloc& e) {
-            rc = -ENOMEM;
+        } catch (...) {
+            rc = -exception_to_errno();
         }
     } else {
         for (const auto& tag: fs->tags()) {
@@ -145,10 +154,8 @@ static int xynta_open(const char* path, struct fuse_file_info* fi) {
                 rc = 0;
                 fi->fh = fd;
             }
-        } catch (std::system_error& e) {
-            rc = -e.code().value();
-        } catch (std::bad_alloc& e) {
-            rc = -ENOMEM;
+        } catch (...) {
+            rc = -exception_to_errno();
         }
     }
     return rc;
