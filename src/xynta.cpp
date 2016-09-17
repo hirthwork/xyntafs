@@ -1,196 +1,78 @@
-#include <fcntl.h>      // open
-#include <fuse.h>
-#include <sys/stat.h>
-#include <unistd.h>     // close
+#include <fuse_lowlevel.h>
 
-#include <cerrno>
-#include <cstring>      // strrchr & memset
+#include <cstdlib>          // std::free
+#include <cstring>          // std::memset
 
-#include <algorithm>    // set_intersection
-#include <iostream>
-#include <iterator> 	// inserter
-#include <new>          // bad_alloc
-#include <string>
-#include <system_error>
-#include <unordered_map>
-#include <utility> 	// swap
+#include "state.hpp"
 
-#include "fs.hpp"
-
-// TODO: SPEED: split into substring objects in order to avoid allocations
-static std::vector<std::string> split(const char* str) {
-    std::vector<std::string> tags;
-    std::string tmp;
-    while (true) {
-        char c = *str++;
-        switch (c) {
-            case '\0':
-                if (!tmp.empty()) {
-                    tags.emplace_back(std::move(tmp));
-                }
-                return tags;
-                break;
-            case '/':
-                if (!tmp.empty()) {
-                    tags.emplace_back(std::move(tmp));
-                    tmp.clear();
-                }
-                break;
-            default:
-                tmp.push_back(c);
-                break;
-        }
-    }
-}
-
-static int exception_to_errno() {
-    try {
-        throw;
-    } catch (std::system_error& e) {
-        return e.code().value();
-    } catch (std::bad_alloc& e) {
-        return ENOMEM;
-    } catch (...) {
-        return EINVAL;
-    }
-}
-
-static const xynta::fs* fs;
-
-static int xynta_getattr(const char* path, struct stat* stat) {
-    int rc;
-    if (path[1]) {
-        try {
-            std::string name{strrchr(path, '/') + 1};
-            if (fs->is_tag(name)) {
-                memset(stat, 0, sizeof(struct stat));
-                stat->st_mode = S_IFDIR | 0755;
-                // TODO: fair links counting
-                stat->st_nlink = 2;
-                rc = 0;
-            } else {
-                rc = ::stat(fs->file_info(name).path.c_str(), stat);
-                if (rc == 0) {
-                    stat->st_mode &= ~0222;
-                } else {
-                    rc = -errno;
-                }
-            }
-        } catch (...) {
-            rc = -exception_to_errno();
-        }
-    } else {
-        memset(stat, 0, sizeof(struct stat));
-        stat->st_mode = S_IFDIR | 0755;
-        stat->st_nlink = 2 + fs->tags().size();
-        rc = 0;
-    }
-    return rc;
-}
-
-static int xynta_readdir(
-    const char* path,
-    void* buf,
-    fuse_fill_dir_t filler,
-    off_t,
-    struct fuse_file_info*)
-{
-    filler(buf, ".", 0, 0);
-    filler(buf, "..", 0, 0);
-    int rc = 0;
-    if (path[1]) {
-        try {
-            auto tags = split(path + 1);
-            auto iter = tags.begin();
-            auto files = fs->files(*iter++);
-            decltype(files) tmp;
-            while (iter != tags.end()) {
-                const auto& tag_files = fs->files(*iter++);
-                std::set_intersection(
-                    files.begin(), files.end(),
-                    tag_files.begin(), tag_files.end(),
-                    std::back_inserter(tmp));
-                std::swap(files, tmp);
-                tmp.clear();
-            }
-            std::unordered_map<std::string, size_t> tag_count;
-            for (const auto& file: files) {
-                filler(buf, file.c_str(), 0, 0);
-                for (const auto& tag: fs->file_info(file).tags) {
-                    ++tag_count[tag];
-                }
-            }
-            for (const auto& tag: tag_count) {
-                if (tag.second < files.size()) {
-                    filler(buf, tag.first.c_str(), 0, 0);
-                }
-            }
-        } catch (...) {
-            rc = -exception_to_errno();
-        }
-    } else {
-        for (const auto& tag: fs->tags()) {
-            filler(buf, tag.c_str(), 0, 0);
-        }
-        for (const auto& file: fs->files()) {
-            filler(buf, file.c_str(), 0, 0);
-        }
-    }
-    return rc;
-}
-
-static int xynta_open(const char* path, struct fuse_file_info* fi) {
-    int rc;
-    if ((fi->flags & 3) != O_RDONLY) {
-        rc = -EACCES;
-    } else {
-        try {
-            int fd = open(
-                fs->file_info(strrchr(path, '/') + 1).path.c_str(),
-                fi->flags);
-            if (fd == -1) {
-                rc = -errno;
-            } else {
-                rc = 0;
-                fi->fh = fd;
-            }
-        } catch (...) {
-            rc = -exception_to_errno();
-        }
-    }
-    return rc;
-}
-
-static int xynta_release(const char*, struct fuse_file_info* fi) {
-    return -close(fi->fh);
-}
-
-static int xynta_read(
-    const char*,
-    char* buf,
+void xynta_lookup(fuse_req_t req, fuse_ino_t parent, const char* name);
+void xynta_forget(fuse_req_t req, fuse_ino_t ino, unsigned long nlookup);
+void xynta_getattr(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info* fi);
+void xynta_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info* fi);
+void xynta_read(
+    fuse_req_t req,
+    fuse_ino_t ino,
     size_t size,
-    off_t offset,
-    struct fuse_file_info* fi)
-{
-    ssize_t read = pread(fi->fh, buf, size, offset);
-    if (read == -1) {
-        return -errno;
-    } else {
-        return read;
-    }
-}
+    off_t off,
+    struct fuse_file_info* fi);
+void xynta_release(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info* fi);
+void xynta_opendir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info* fi);
+void xynta_readdir(
+    fuse_req_t req,
+    fuse_ino_t ino,
+    size_t size,
+    off_t off,
+    struct fuse_file_info* fi);
+void xynta_releasedir(
+    fuse_req_t req,
+    fuse_ino_t ino,
+    struct fuse_file_info* fi);
 
 int main(int argc, char* argv[]) {
-    xynta::fs fs(argv[1]);
-    ::fs = &fs;
-    struct fuse_operations ops;
-    memset(&ops, 0, sizeof ops);
+    xynta::state state(argv[1]);
+    struct fuse_lowlevel_ops ops;
+    std::memset(&ops, 0, sizeof ops);
+    ops.lookup = xynta_lookup;
+    ops.forget = xynta_forget;
     ops.getattr = xynta_getattr;
-    ops.readdir = xynta_readdir;
     ops.open = xynta_open;
-    ops.release = xynta_release;
     ops.read = xynta_read;
+    ops.release = xynta_release;
+    ops.opendir = xynta_opendir;
+    ops.readdir = xynta_readdir;
+    ops.releasedir = xynta_releasedir;
+
     argv[1] = argv[0];
-    return fuse_main(argc - 1, argv + 1, &ops, 0);
+    struct fuse_args args = FUSE_ARGS_INIT(argc - 1, argv + 1);
+    char* mountpoint;
+    int multithreaded;
+    int foreground;
+    int rc = 1;
+    if (!fuse_parse_cmdline(&args, &mountpoint, &multithreaded, &foreground)) {
+        if (struct fuse_chan* ch = fuse_mount(mountpoint, &args)) {
+            struct fuse_session* session =
+                fuse_lowlevel_new(&args, &ops, sizeof ops, &state);
+            if (session) {
+                if (!fuse_set_signal_handlers(session)) {
+                    fuse_session_add_chan(session, ch);
+                    rc = fuse_daemonize(foreground);
+                    if (!rc) {
+                        if (multithreaded) {
+                            rc = fuse_session_loop_mt(session);
+                        } else {
+                            rc = fuse_session_loop(session);
+                        }
+                    }
+                    fuse_remove_signal_handlers(session);
+                    fuse_session_remove_chan(ch);
+                }
+                fuse_session_destroy(session);
+            }
+            fuse_unmount(mountpoint, ch);
+        }
+        std::free(mountpoint);
+    }
+    fuse_opt_free_args(&args);
+    return rc;
 }
 
