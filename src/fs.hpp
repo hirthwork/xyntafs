@@ -1,5 +1,5 @@
-#ifndef __XYNTA_FS_HPP__
-#define __XYNTA_FS_HPP__
+#ifndef __XYNTA__FS_HPP__
+#define __XYNTA__FS_HPP__
 
 #include <string>
 #include <system_error>
@@ -39,7 +39,10 @@ class fs {
         std::string&& filename);
 
 public:
-    fs(std::string root);
+    fs(std::string&& root);
+
+    fs(const fs&) = delete;
+    fs& operator =(const fs&) = delete;
 
     const std::vector<std::string>& tags() const {
         return all_tags;
@@ -51,15 +54,16 @@ public:
 
     template <class K>
     const file& file_info(const K& file) const {
-	return find(file_infos, file);
+        return find(file_infos, file);
     }
 
     template <class K>
     const std::vector<std::string>& files(const K& tag) const {
-	return find(tag_files, tag);
+        return find(tag_files, tag);
     }
 
-    bool is_tag(const std::string& tag) const {
+    template <class K>
+    bool is_tag(const K& tag) const {
         return tag_files.find(tag) != tag_files.end();
     }
 };

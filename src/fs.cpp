@@ -5,12 +5,12 @@
 
 #include <cerrno>
 
-#include <algorithm>    // sort & unique & lower_bound
-#include <memory>       // make_unique
-#include <stdexcept>    // logic_error
+#include <algorithm>    // std::sort, std::unique, std::lower_bound
+#include <memory>       // std::make_unique
+#include <stdexcept>    // std::logic_error
 #include <string>
 #include <system_error>
-#include <utility>      // move
+#include <utility>      // std::move
 #include <vector>
 
 #include "fs.hpp"
@@ -116,7 +116,7 @@ static void insert(std::vector<std::string>& data, const std::string& str) {
     }
 }
 
-xynta::fs::fs(std::string root) {
+xynta::fs::fs(std::string&& root) {
     root.push_back('/');
     process_dir({}, root);
     std::sort(all_files.begin(), all_files.end());
