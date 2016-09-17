@@ -8,7 +8,7 @@
 #include <utility>          // std::pair
 #include <vector>
 
-#include <state.hpp>
+#include <fs.hpp>           // xynta::dir_listing
 #include <util.hpp>         // xynta::exception_to_errno
 
 void xynta_readdir(
@@ -18,7 +18,7 @@ void xynta_readdir(
     off_t off,
     struct fuse_file_info* fi)
 try {
-    auto& dir = *reinterpret_cast<const xynta::dir*>(fi->fh);
+    auto& dir = *reinterpret_cast<const xynta::dir_listing*>(fi->fh);
     auto buf = std::make_unique<char[]>(size);
     char* out = buf.get();
     struct stat stat;

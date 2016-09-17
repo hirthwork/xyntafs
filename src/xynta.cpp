@@ -3,7 +3,7 @@
 #include <cstdlib>          // std::free
 #include <cstring>          // std::memset
 
-#include "state.hpp"
+#include "fs.hpp"
 
 void xynta_lookup(fuse_req_t req, fuse_ino_t parent, const char* name);
 void xynta_forget(fuse_req_t req, fuse_ino_t ino, unsigned long nlookup);
@@ -29,7 +29,7 @@ void xynta_releasedir(
     struct fuse_file_info* fi);
 
 int main(int argc, char* argv[]) {
-    xynta::state state(argv[1]);
+    xynta::fs fs(argv[1]);
     struct fuse_lowlevel_ops ops;
     std::memset(&ops, 0, sizeof ops);
     ops.lookup = xynta_lookup;
@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
     if (!fuse_parse_cmdline(&args, &mountpoint, &multithreaded, &foreground)) {
         if (struct fuse_chan* ch = fuse_mount(mountpoint, &args)) {
             struct fuse_session* session =
-                fuse_lowlevel_new(&args, &ops, sizeof ops, &state);
+                fuse_lowlevel_new(&args, &ops, sizeof ops, &fs);
             if (session) {
                 if (!fuse_set_signal_handlers(session)) {
                     fuse_session_add_chan(session, ch);

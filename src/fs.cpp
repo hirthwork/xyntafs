@@ -116,7 +116,10 @@ static void insert(std::vector<std::string>& data, const std::string& str) {
     }
 }
 
-xynta::fs::fs(std::string&& root) {
+xynta::fs::fs(std::string&& root)
+    : folders_ino_counter{1}
+    , files_ino_counter{}
+{
     root.push_back('/');
     process_dir({}, root);
     std::sort(all_files.begin(), all_files.end());
