@@ -1,16 +1,17 @@
 #include <dirent.h>
+#include <fuse_lowlevel.h>
 #include <sys/stat.h>
-#include <sys/types.h>  // DIR
-#include <sys/xattr.h>  // getxattr
+#include <sys/types.h>      // DIR
+#include <sys/xattr.h>      // getxattr
 
 #include <cerrno>
 
-#include <algorithm>    // std::sort, std::unique, std::lower_bound
-#include <memory>       // std::make_unique
-#include <stdexcept>    // std::logic_error
+#include <algorithm>        // std::sort, std::unique, std::lower_bound
+#include <memory>           // std::make_unique
+#include <stdexcept>        // std::logic_error
 #include <string>
 #include <system_error>
-#include <utility>      // std::move
+#include <utility>          // std::move
 #include <vector>
 
 #include "fs.hpp"
@@ -38,16 +39,113 @@ public:
     }
 };
 
-static void split(std::vector<std::string>& tags, const char* str) {
+xynta::fs::fs(std::string&& root)
+    : folders_ino_counter{FUSE_ROOT_ID}
+    , files_ino_counter{}
+{
+    root.push_back('/');
+    process_dir({}, root);
+    std::sort(all_files.begin(), all_files.end());
+    for (auto& tag: tag_files) {
+        std::sort(tag.second.begin(), tag.second.end());
+    }
+}
+
+void xynta::fs::process_dir(
+    const std::vector<fuse_ino_t>& tags,
+    const std::string& root)
+{
+    dir d(root.c_str());
+    while (struct dirent* dirent = d.next()) {
+        if (*dirent->d_name != '.') {
+            auto current_tags = tags;
+            std::string name{dirent->d_name};
+            auto path = root + name;
+            struct stat stat;
+            if (::stat(path.c_str(), &stat)) {
+                throw std::system_error(errno, std::system_category());
+            } else if (stat.st_mode & S_IFREG) {
+                auto pos = name.rfind('.');
+                if (pos != std::string::npos && pos + 1 < name.size()) {
+                    current_tags.emplace_back(add_tag(name.substr(pos + 1)));
+                }
+                process_file(
+                    std::move(name),
+                    std::move(path),
+                    std::move(current_tags));
+            } else if (stat.st_mode & S_IFDIR) {
+                path.push_back('/');
+                current_tags.emplace_back(add_tag(std::move(name)));
+                process_dir(current_tags, path);
+            } else {
+                throw std::logic_error(
+                    "Don't know how to process " + path
+                    + " with flags " + std::to_string(stat.st_mode));
+            }
+        }
+    }
+}
+
+void xynta::fs::process_file(
+    std::string&& filename,
+    std::string&& path,
+    std::vector<fuse_ino_t>&& tags)
+{
+    files_ino_counter += 2;
+    auto emplace_result =
+        name_to_ino.emplace(std::move(filename), files_ino_counter);
+    if (!emplace_result.second) {
+        if (emplace_result.first->second & 1) {
+            throw std::logic_error("File and tag names collision: " + path);
+        } else {
+            throw std::logic_error(
+                "Two files has same basename: " + path + " and "
+                + ino_to_file.find(emplace_result.first->second)->second.path);
+        }
+    }
+    all_files.push_back(files_ino_counter);
+    load_tags(tags, path.c_str());
+    std::sort(tags.begin(), tags.end());
+    tags.erase(std::unique(tags.begin(), tags.end()), tags.end());
+    for (const auto& tag: tags) {
+        tag_files[tag].push_back(files_ino_counter);
+    }
+    ino_to_file.emplace(
+        files_ino_counter,
+        file{emplace_result.first->first, std::move(path), std::move(tags)});
+}
+
+void xynta::fs::load_tags(std::vector<fuse_ino_t>& tags, const char* path) {
+    ssize_t size = getxattr(path, TAGS_ATTRIBUTE, 0, 0);
+    auto buf = std::make_unique<char[]>(size + 1);
+    while (true) {
+        ssize_t new_size = getxattr(path, TAGS_ATTRIBUTE, buf.get(), size);
+        if (new_size < 0) {
+            int err = errno;
+            if (err == ENODATA) {
+                return;
+            } else {
+                throw std::system_error(err, std::system_category());
+            }
+        } else if (new_size > size) {
+            size = new_size;
+            buf = std::make_unique<char[]>(size + 1);
+        } else {
+            buf.get()[new_size] = 0;
+            break;
+        }
+    }
+
     std::string tmp;
     bool escaped = false;
+    const char* str = buf.get();
     while (true) {
         char c = *str++;
         if (escaped) {
             switch (c) {
                 case '\0':
                     tmp.push_back('\\');
-                    tags.emplace_back(std::move(tmp));
+                    tags.emplace_back(add_tag(std::move(tmp)));
                     return;
                 case ' ':
                     tmp.push_back(' ');
@@ -65,12 +163,12 @@ static void split(std::vector<std::string>& tags, const char* str) {
             switch (c) {
                 case '\0':
                     if (!tmp.empty()) {
-                        tags.emplace_back(std::move(tmp));
+                        tags.emplace_back(add_tag(std::move(tmp)));
                     }
                     return;
                 case ' ':
                     if (!tmp.empty()) {
-                        tags.emplace_back(std::move(tmp));
+                        tags.emplace_back(add_tag(std::move(tmp)));
                         tmp.clear();
                     }
                     break;
@@ -85,98 +183,18 @@ static void split(std::vector<std::string>& tags, const char* str) {
     }
 }
 
-static void load_tags(std::vector<std::string>& tags, const char* path) {
-    ssize_t size = getxattr(path, TAGS_ATTRIBUTE, 0, 0);
-    while (true) {
-        auto value = std::make_unique<char[]>(size + 1);
-        ssize_t new_size = getxattr(path, TAGS_ATTRIBUTE, value.get(), size);
-        if (new_size < 0) {
-            int err = errno;
-            if (err == ENODATA) {
-                return;
-            } else {
-                throw std::system_error(err, std::system_category());
-            }
-        } else if (new_size > size) {
-            size = new_size;
-        } else {
-            value.get()[new_size] = 0;
-            split(tags, value.get());
-            std::sort(tags.begin(), tags.end());
-            tags.erase(std::unique(tags.begin(), tags.end()), tags.end());
-            return;
-        }
+fuse_ino_t xynta::fs::add_tag(std::string&& tag) {
+    folders_ino_counter += 2;
+    auto emplace_result =
+        name_to_ino.emplace(std::move(tag), folders_ino_counter);
+    if (emplace_result.second) {
+        ino_to_tag.emplace(folders_ino_counter, emplace_result.first->first);
+    } else if ((emplace_result.first->second & 1) == 0) {
+        throw new std::logic_error(
+            "Can't add tag. There is already file "
+            + ino_to_file.find(emplace_result.first->second)->second.path
+            + " present.");
     }
-}
-
-static void insert(std::vector<std::string>& data, const std::string& str) {
-    auto pos = std::lower_bound(data.begin(), data.end(), str);
-    if (pos == data.end() || *pos != str) {
-        data.insert(pos, str);
-    }
-}
-
-xynta::fs::fs(std::string&& root)
-    : folders_ino_counter{1}
-    , files_ino_counter{}
-{
-    root.push_back('/');
-    process_dir({}, root);
-    std::sort(all_files.begin(), all_files.end());
-}
-
-void xynta::fs::process_dir(
-    const std::vector<std::string>& tags,
-    const std::string& root)
-{
-    dir d(root.c_str());
-    while (struct dirent* dirent = d.next()) {
-        if (*dirent->d_name != '.') {
-            auto current_tags = tags;
-            std::string name{dirent->d_name};
-            auto path = root + name;
-            struct stat stat;
-            if (::stat(path.c_str(), &stat)) {
-                throw std::system_error(errno, std::system_category());
-            } else if (stat.st_mode & S_IFREG) {
-                auto pos = name.rfind('.');
-                if (pos != std::string::npos && pos + 1 < name.size()) {
-                    current_tags.emplace_back(name.substr(pos + 1));
-                }
-                process_file(
-                    std::move(current_tags),
-                    std::move(path),
-                    std::move(name));
-            } else if (stat.st_mode & S_IFDIR) {
-                path.push_back('/');
-                current_tags.emplace_back(std::move(name));
-                process_dir(current_tags, path);
-            } else {
-                throw std::logic_error(
-                    "Don't know how to process " + path
-                    + " with flags " + std::to_string(stat.st_mode));
-            }
-        }
-    }
-}
-
-void xynta::fs::process_file(
-    std::vector<std::string>&& tags,
-    std::string&& path,
-    std::string&& filename)
-{
-    all_files.push_back(filename);
-    load_tags(tags, path.c_str());
-    for (const auto& tag: tags) {
-        insert(tag_files[tag], filename);
-    }
-    auto emplace_result = file_infos.emplace(
-        std::move(filename),
-        file{path, std::move(tags)});
-    if (!emplace_result.second) {
-        throw std::logic_error(
-            "File names collision: " + path
-            + " and " + emplace_result.first->second.path);
-    }
+    return emplace_result.first->second;
 }
 

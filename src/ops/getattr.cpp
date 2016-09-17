@@ -19,7 +19,7 @@ try {
         stat.st_nlink = 2;
         fuse_reply_attr(req, &stat, 0);
     } else {
-        const auto& file_info = fs.file_info(fs.filename(ino));
+        const auto& file_info = fs.file_info(ino);
         if (::stat(file_info.path.c_str(), &stat)) {
             fuse_reply_err(req, errno);
         } else {

@@ -8,8 +8,6 @@ try {
     auto& fs = *reinterpret_cast<xynta::fs*>(fuse_req_userdata(req));
     if (ino & 1) {
         fs.remove_folder(ino);
-    } else {
-        fs.remove_file(ino);
     }
     fuse_reply_none(req);
 } catch (...) {

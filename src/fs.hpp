@@ -9,33 +9,34 @@
 #include <system_error>
 #include <unordered_map>
 #include <vector>
-#include <utility>          // std::move, std::pair
+#include <utility>          // std::move
 
 namespace xynta {
 
-// each directory entry has name and is_dir flag
-typedef std::vector<std::pair<std::string, bool>> dir_listing;
+typedef std::vector<fuse_ino_t> dir_listing;
 
 struct file {
+    const std::string& filename;
     const std::string path;
-    const std::vector<std::string> tags;
+    const std::vector<fuse_ino_t> tags;
 };
 
 class fs {
-    std::vector<std::string> all_files;
-    std::unordered_map<std::string, std::vector<std::string>> tag_files;
-    std::unordered_map<std::string, file> file_infos;
+    std::unordered_map<std::string, fuse_ino_t> name_to_ino;
+    std::unordered_map<fuse_ino_t, const std::string&> ino_to_tag;
+    std::unordered_map<fuse_ino_t, file> ino_to_file;
 
-    std::unordered_map<fuse_ino_t, std::vector<std::string>> folders;
-    std::unordered_map<fuse_ino_t, std::string> files_mapping;
+    std::vector<fuse_ino_t> all_files;
+    std::unordered_map<fuse_ino_t, std::vector<fuse_ino_t>> tag_files;
+
+    std::unordered_map<fuse_ino_t, std::vector<fuse_ino_t>> folders;
     mutable std::shared_mutex folders_mutex;
-    mutable std::shared_mutex files_mutex;
     fuse_ino_t folders_ino_counter;
     fuse_ino_t files_ino_counter;
 
-    template <class M, class K>
-    static const auto& find(const M& map, const K& key) {
-        auto iter = map.find(key);
+    template <class M>
+    static const auto& find(const M& map, fuse_ino_t ino) {
+        auto iter = map.find(ino);
         if (iter == map.end()) {
             throw std::system_error(
                 std::make_error_code(std::errc::no_such_file_or_directory));
@@ -45,12 +46,14 @@ class fs {
     }
 
     void process_dir(
-        const std::vector<std::string>& tags,
+        const std::vector<fuse_ino_t>& tags,
         const std::string& root);
     void process_file(
-        std::vector<std::string>&& tags,
+        std::string&& filename,
         std::string&& path,
-        std::string&& filename);
+        std::vector<fuse_ino_t>&& tags);
+    void load_tags(std::vector<fuse_ino_t>& tags, const char* path);
+    fuse_ino_t add_tag(std::string&& tag);
 
 public:
     fs(std::string&& root);
@@ -58,37 +61,39 @@ public:
     fs(const fs&) = delete;
     fs& operator =(const fs&) = delete;
 
-    const std::vector<std::string>& files() const {
+    const std::vector<fuse_ino_t>& files() const {
         return all_files;
     }
 
     template <class K>
-    const file& file_info(const K& file) const {
-        return find(file_infos, file);
+    fuse_ino_t ino(const K& name) const {
+        auto iter = name_to_ino.find(name);
+        if (iter == name_to_ino.end()) {
+            return {};
+        } else {
+            return iter->second;
+        }
     }
 
-    template <class K>
-    const std::vector<std::string>& files(const K& tag) const {
-        return find(tag_files, tag);
+    const file& file_info(fuse_ino_t ino) const {
+        return find(ino_to_file, ino);
     }
 
-    template <class K>
-    bool is_tag(const K& tag) const {
-        return tag_files.find(tag) != tag_files.end();
+    const std::string& tag_name(fuse_ino_t ino) const {
+        return find(ino_to_tag, ino);
     }
 
-    const std::vector<std::string>& folder_files(fuse_ino_t ino) const {
+    const std::vector<fuse_ino_t>& files(fuse_ino_t ino) const {
+        return find(tag_files, ino);
+    }
+
+    const std::vector<fuse_ino_t>& folder_files(fuse_ino_t ino) const {
         if (ino == FUSE_ROOT_ID) {
             return all_files;
         } else {
             std::shared_lock<std::shared_mutex> lock(folders_mutex);
             return find(folders, ino);
         }
-    }
-
-    const std::string& filename(fuse_ino_t ino) const {
-        std::shared_lock<std::shared_mutex> lock(files_mutex);
-        return find(files_mapping, ino);
     }
 
     // § 23.2.5.1/1
@@ -101,7 +106,7 @@ public:
     //
     // This could lead to serious performance penalty, so probably
     // unordered_map should be distributed among several independent maps.
-    fuse_ino_t store_folder(std::vector<std::string>&& files) {
+    fuse_ino_t store_folder(std::vector<fuse_ino_t>&& files) {
         std::unique_lock<std::shared_mutex> lock(folders_mutex);
         fuse_ino_t ino = folders_ino_counter += 2;
         folders.emplace(ino, std::move(files));
@@ -111,18 +116,6 @@ public:
     void remove_folder(fuse_ino_t ino) {
         std::unique_lock<std::shared_mutex> lock(folders_mutex);
         folders.erase(ino);
-    }
-
-    fuse_ino_t store_file(std::string&& filename) {
-        std::unique_lock<std::shared_mutex> lock(files_mutex);
-        fuse_ino_t ino = files_ino_counter += 2;
-        files_mapping.emplace(ino, std::move(filename));
-        return ino;
-    }
-
-    void remove_file(fuse_ino_t ino) {
-        std::unique_lock<std::shared_mutex> lock(files_mutex);
-        files_mapping.erase(ino);
     }
 };
 
