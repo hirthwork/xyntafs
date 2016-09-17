@@ -10,8 +10,8 @@ sources = $(shell find src -type f -name \*.cpp)
 
 .PHONY: clean
 
-xynta: Makefile $(headers) $(sources) | $(builddir)
-	$(CXX) $(CFLAGS) $(CXXFLAGS) $(sources) -o $(builddir)/$@
+$(builddir)/xynta: Makefile $(headers) $(sources) | $(builddir)
+	$(CXX) $(CFLAGS) $(CXXFLAGS) $(sources) -o $@
 
 $(builddir):
 	mkdir $(builddir)
