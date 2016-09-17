@@ -123,11 +123,6 @@ xynta::fs::fs(std::string&& root)
     root.push_back('/');
     process_dir({}, root);
     std::sort(all_files.begin(), all_files.end());
-    for (const auto& tag: all_tags) {
-        if (file_infos.find(tag) != file_infos.end()) {
-            throw std::logic_error("Duplicated tag and file name: " + tag);
-        }
-    }
 }
 
 void xynta::fs::process_dir(
@@ -173,7 +168,6 @@ void xynta::fs::process_file(
     all_files.push_back(filename);
     load_tags(tags, path.c_str());
     for (const auto& tag: tags) {
-        insert(all_tags, tag);
         insert(tag_files[tag], filename);
     }
     auto emplace_result = file_infos.emplace(

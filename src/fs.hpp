@@ -22,7 +22,6 @@ struct file {
 };
 
 class fs {
-    std::vector<std::string> all_tags;
     std::vector<std::string> all_files;
     std::unordered_map<std::string, std::vector<std::string>> tag_files;
     std::unordered_map<std::string, file> file_infos;
@@ -58,10 +57,6 @@ public:
 
     fs(const fs&) = delete;
     fs& operator =(const fs&) = delete;
-
-    const std::vector<std::string>& tags() const {
-        return all_tags;
-    }
 
     const std::vector<std::string>& files() const {
         return all_files;
