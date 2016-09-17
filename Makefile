@@ -1,5 +1,5 @@
-CFLAGS = -Ofast -flto
-override CFLAGS += -Wall -Wextra -Wpedantic -Werror
+CFLAGS = -Ofast -pipe -flto
+override CFLAGS += -Wall -Wextra -Wpedantic -Werror -Wstrict-overflow=5
 override CFLAGS += $(shell pkg-config fuse --cflags --libs)
 override CFLAGS += -DFUSE_USE_VERSION=26 -Isrc
 
