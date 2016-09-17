@@ -30,16 +30,18 @@ try {
             // this folder will be empty, which is currently forbidden
             fuse_reply_err(req, ENOENT);
         } else {
-            auto folder_ino = fs.store_folder(std::move(result_files));
-            struct fuse_entry_param entry;
-            std::memset(&entry, 0, sizeof entry);
-            entry.ino = folder_ino;
-            entry.attr.st_ino = folder_ino;
-            entry.attr.st_mode = S_IFDIR | 0555;
-            // TODO: fair links counting
-            entry.attr.st_nlink = 2;
-            // TODO: check return value, see fs::store_folder description
-            fuse_reply_entry(req, &entry);
+            fs.store_folder(
+                std::move(result_files),
+                [req] (fuse_ino_t folder_ino) {
+                    struct fuse_entry_param entry;
+                    std::memset(&entry, 0, sizeof entry);
+                    entry.ino = folder_ino;
+                    entry.attr.st_ino = folder_ino;
+                    entry.attr.st_mode = S_IFDIR | 0555;
+                    // TODO: fair links counting
+                    entry.attr.st_nlink = 2;
+                    return fuse_reply_entry(req, &entry) == 0;
+                });
         }
     } else if (ino && binary_search(files.begin(), files.end(), ino)) {
         // this is a regular file which belongs to parent directory

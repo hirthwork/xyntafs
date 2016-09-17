@@ -96,21 +96,14 @@ public:
         }
     }
 
-    // § 23.2.5.1/1
-    // `erase(k)' does not throw an exception unless that exception is thrown
-    // by the container's `Compare' object.
-    //
-    // Still exception can be thrown by lock, so in order to perform proper
-    // clean up, mutex ownership must be taken exactly once, so new inode can
-    // be safely removed from folders and counter can be decremented.
-    //
-    // This could lead to serious performance penalty, so probably
-    // unordered_map should be distributed among several independent maps.
-    fuse_ino_t store_folder(std::vector<fuse_ino_t>&& files) {
+    template <class C>
+    void store_folder(std::vector<fuse_ino_t>&& files, C callback) {
         std::unique_lock<std::shared_mutex> lock(folders_mutex);
         fuse_ino_t ino = folders_ino_counter += 2;
-        folders.emplace(ino, std::move(files));
-        return ino;
+        auto iter = folders.emplace(ino, std::move(files));
+        if (!callback(ino)) {
+            folders.erase(iter.first);
+        }
     }
 
     void remove_folder(fuse_ino_t ino) {
