@@ -5,6 +5,7 @@
 #include <sys/xattr.h>      // getxattr
 
 #include <cerrno>
+#include <cstddef>          // std::size_t
 
 #include <algorithm>        // std::sort, std::unique, std::lower_bound
 #include <memory>           // std::make_unique
@@ -39,9 +40,10 @@ public:
     }
 };
 
-xynta::fs::fs(std::string&& root)
+xynta::fs::fs(std::string root, std::size_t min_files)
     : folders_ino_counter{FUSE_ROOT_ID}
     , files_ino_counter{}
+    , min_files(min_files)
 {
     root.push_back('/');
     process_dir({}, root);

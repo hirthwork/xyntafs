@@ -1,6 +1,7 @@
 #include <fuse_lowlevel.h>
 
 #include <cstddef>          // std::size_t
+
 #include <memory>           // std::unique_ptr
 #include <unordered_map>
 
@@ -22,7 +23,7 @@ try {
     dir->emplace_back(ino);
     dir->emplace_back(ino);
     // do not print tags list for a small number of files
-    if (files.size() > 10) {
+    if (files.size() > fs.min_files) {
         for (const auto& tag: tags) {
             if (tag.second < files.size()) {
                 dir->emplace_back(tag.first);

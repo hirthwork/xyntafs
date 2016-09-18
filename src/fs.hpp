@@ -3,6 +3,8 @@
 
 #include <fuse_lowlevel.h>
 
+#include <cstddef>          // std::size_t
+
 #include <mutex>            // std::unique_lock
 #include <shared_mutex>
 #include <string>
@@ -56,14 +58,12 @@ class fs {
     fuse_ino_t add_tag(std::string&& tag);
 
 public:
-    fs(std::string&& root);
+    const std::size_t min_files;
+
+    fs(std::string root, std::size_t min_files);
 
     fs(const fs&) = delete;
     fs& operator =(const fs&) = delete;
-
-    const std::vector<fuse_ino_t>& files() const {
-        return all_files;
-    }
 
     template <class K>
     fuse_ino_t ino(const K& name) const {

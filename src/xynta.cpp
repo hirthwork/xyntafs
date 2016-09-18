@@ -1,7 +1,12 @@
 #include <fuse_lowlevel.h>
+#include <getopt.h>
 
+#include <cstddef>          // std::size_t
 #include <cstdlib>          // std::free
+
 #include <cstring>          // std::memset
+#include <iostream>         // std::cout, std::cerr
+#include <string>           // std::string, std::stoul
 
 #include "fs.hpp"
 
@@ -28,8 +33,66 @@ void xynta_releasedir(
     fuse_ino_t ino,
     struct fuse_file_info* fi);
 
+void usage(const char* argv0, std::ostream& out) {
+    out << "Usage: " << argv0
+        << " --data-dir=<data-dir> [--min-files=<N>] [<fuse_opts>...] "
+        << "<mountpoint>"
+        << std::endl
+        << "   or: " << argv0 << " --help"
+        << std::endl
+        << "Mount <data-dir> as tagged file system to <mountpoint>."
+        << std::endl
+        << std::endl
+        << "Options:"
+        << std::endl
+        << "  -d, --data-dir=<data-dir>     Directory with files and tags to "
+        << "mount."
+        << std::endl
+        << "  -m, --min-files=<N>           Minimal files in directory to "
+        << "have tags being shown."
+        << std::endl
+        << "                                Default is 10."
+        << std::endl
+        << "  -h, --help                    Give this help list."
+        << std::endl;
+}
+
 int main(int argc, char* argv[]) {
-    xynta::fs fs(argv[1]);
+    std::string data_dir;
+    std::size_t min_files = 10;
+    struct option opts[] = {
+        {"help",        no_argument,        nullptr, 'h'},
+        {"data-dir",    required_argument,  nullptr, 'd'},
+        {"min-files",   required_argument,  nullptr, 'm'},
+        {nullptr,       0,                  nullptr,  0 }
+    };
+    int opt;
+    while ((opt = getopt_long(argc, argv, "hd:m:", opts, nullptr)) != -1) {
+        switch (opt) {
+            case 'h':
+                usage(argv[0], std::cout);
+                return 0;
+            case 'd':
+                data_dir = optarg;
+                break;
+            case 'm':
+                min_files = std::stoul(optarg);
+                break;
+            default:
+                std::cerr << "Unrecognized option '" << (char) opt << '\''
+                    << std::endl;
+                usage(argv[0], std::cerr);
+                return 1;
+        }
+    }
+
+    if (data_dir.empty()) {
+        std::cerr << "Error: data-dir is not set" << std::endl;
+        usage(argv[0], std::cerr);
+        return 1;
+    }
+
+    xynta::fs fs(data_dir, min_files);
     struct fuse_lowlevel_ops ops;
     std::memset(&ops, 0, sizeof ops);
     ops.lookup = xynta_lookup;
@@ -42,8 +105,9 @@ int main(int argc, char* argv[]) {
     ops.readdir = xynta_readdir;
     ops.releasedir = xynta_releasedir;
 
-    argv[1] = argv[0];
-    struct fuse_args args = FUSE_ARGS_INIT(argc - 1, argv + 1);
+    argv[optind - 1] = argv[0];
+    struct fuse_args args =
+        FUSE_ARGS_INIT(argc - optind + 1, argv + optind - 1);
     char* mountpoint;
     int multithreaded;
     int foreground;
