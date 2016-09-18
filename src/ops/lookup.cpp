@@ -4,8 +4,9 @@
 #include <cerrno>
 #include <cstring>          // std::memset
 
-#include <algorithm>        // std::set_intersection,min,binary_search
-#include <iterator> 	    // std::back_inserter
+#include <algorithm>        // std::set_intersection, std::binary_search
+                            // std::min
+#include <iterator>         // std::back_inserter
 #include <type_traits>      // std::decay
 #include <utility>          // std::move
 

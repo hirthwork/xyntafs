@@ -2,6 +2,7 @@
 #include <unistd.h>         // pread
 
 #include <cerrno>
+
 #include <memory>           // std::make_unique
 
 #include <util.hpp>         // xynta::exception_to_errno

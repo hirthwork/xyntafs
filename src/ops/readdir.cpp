@@ -2,6 +2,7 @@
 #include <sys/stat.h>       // stat, S_IFDIR, S_IFREG
 
 #include <cstring>          // std::memset
+
 #include <memory>           // std::make_unique
 
 #include <fs.hpp>
