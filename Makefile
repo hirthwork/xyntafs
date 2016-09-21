@@ -1,4 +1,4 @@
-CFLAGS = -Ofast -pipe -flto
+CFLAGS = -O2 -pipe -flto
 override CFLAGS += -Wall -Wextra -Wpedantic -Werror -Wstrict-overflow=5
 override CFLAGS += $(shell pkg-config fuse --cflags --libs)
 override CFLAGS += -DFUSE_USE_VERSION=26 -Isrc
@@ -15,6 +15,8 @@ else
     override CXXFLAGS += -std=c++1z
 endif
 
+COMPILERS_LIST = g++-4.9.3 g++-5.4.0 g++-6.2.0 clang++
+
 builddir = build
 testdir = $(builddir)/test
 headers = $(shell find src -type f -name \*.hpp)
@@ -24,7 +26,7 @@ tests-base = $(addprefix $(testdir)/,$(tests))
 tests-done = $(addsuffix /done,$(tests-base))
 target = $(builddir)/xynta
 
-.PHONY: clean test
+.PHONY: clean test test-compilers
 
 $(target): Makefile $(headers) $(sources) | $(builddir)
 	$(CXX) $(CFLAGS) $(CXXFLAGS) $(sources) -o $@
@@ -40,6 +42,12 @@ clean:
 	    fusermount -q -u $$mountpoint/mount || true; \
 	done
 	rm -rf $(builddir)
+
+test-compilers:
+	for x in $(COMPILERS_LIST); do \
+	    echo -e "\n[Running test for $$x]"; \
+	    $(MAKE) CXX=$$x builddir=$(builddir)/$$x test; \
+	done
 
 test: $(tests-done)
 
