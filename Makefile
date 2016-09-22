@@ -1,7 +1,9 @@
 CFLAGS = -O2 -pipe -flto
 override CFLAGS += -Wall -Wextra -Wpedantic -Werror -Wstrict-overflow=5
-override CFLAGS += $(shell pkg-config fuse --cflags --libs)
+override CFLAGS += $(shell pkg-config fuse --cflags)
 override CFLAGS += -DFUSE_USE_VERSION=26 -Isrc
+
+override LDFLAGS += $(shell pkg-config fuse --libs)
 
 gcc-version = \
     $(firstword \
@@ -26,10 +28,10 @@ tests-base = $(addprefix $(testdir)/,$(tests))
 tests-done = $(addsuffix /done,$(tests-base))
 target = $(builddir)/xynta
 
-.PHONY: clean test test-compilers
+.PHONY: clean test full-test
 
 $(target): Makefile $(headers) $(sources) | $(builddir)
-	$(CXX) $(CFLAGS) $(CXXFLAGS) $(sources) -o $@
+	$(CXX) $(CFLAGS) $(CXXFLAGS) $(LDFLAGS) $(sources) -o $@
 
 $(builddir):
 	mkdir -p $(builddir)
@@ -43,10 +45,10 @@ clean:
 	done
 	rm -rf $(builddir)
 
-test-compilers:
+full-test:
 	for x in $(COMPILERS_LIST); do \
 	    echo -e "\n[Running test for $$x]"; \
-	    $(MAKE) CXX=$$x builddir=$(builddir)/$$x test; \
+	    $(MAKE) CXX=$$x builddir=$(builddir)/$$x test || exit 1; \
 	done
 
 test: $(tests-done)
@@ -66,7 +68,7 @@ $(addsuffix /prepare,$(tests-base)) : %/prepare : $(target) | $(testdir)
 	touch $@
 
 $(testdir)/basic-listing/run:
-	# prepare stage must be repeated for every
+	# prepare stage must be repeated both for every launch
 	rm $(dir $@)prepare
 	mkdir $(dir $@)data/dir1
 	mkdir $(dir $@)data/dir2
