@@ -21,7 +21,7 @@ try {
     char* out = buf.get();
     struct stat stat;
     std::memset(&stat, 0, sizeof stat);
-    while (off < dir.size()) {
+    while (static_cast<decltype(dir.size())>(off) < dir.size()) {
         auto ino = dir[off];
         stat.st_ino = ino;
         if (ino & 1) {
