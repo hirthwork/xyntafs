@@ -2,6 +2,7 @@ os: linux
 compiler: gcc
 language: cpp
 dist: trusty
+sudo: required
 addons:
     apt:
         sources:
