@@ -6,12 +6,12 @@ addons:
         sources:
             - ubuntu-toolchain-r-test
         packages:
-            - g++-5
+            - g++-6
 before_install:
     - pip install --user cpp-coveralls
     - sudo apt-get -qq update
     - sudo apt-get install -qq -y libfuse-dev
 script:
-    - make test CFLAGS="-O0 --coverage" CXX="g++-5"
+    - make test CFLAGS="-O0 --coverage" CXX="g++-6"
 after_success:
     - coveralls --gcov-options '\-lp'
