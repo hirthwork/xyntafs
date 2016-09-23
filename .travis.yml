@@ -1,12 +1,17 @@
 os: linux
-dist: xenial
 compiler: gcc
 language: cpp
+addons:
+    apt:
+        sources:
+            - ubuntu-toolchain-r-test
+        packages:
+            - g++-5
 before_install:
-- pip install --user cpp-coveralls
-- sudo apt-get -qq update
-- sudo apt-get install -qq -y libfuse-dev
+    - pip install --user cpp-coveralls
+    - sudo apt-get -qq update
+    - sudo apt-get install -qq -y libfuse-dev
 script:
-- make test CFLAGS="-O0 --coverage"
+    - make test CFLAGS="-O0 --coverage" CXX="g++-5"
 after_success:
-- coveralls --gcov-options '\-lp'
+    - coveralls --gcov-options '\-lp'
