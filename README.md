@@ -1,4 +1,4 @@
-# XYNTA FS [![Build Status](https://travis-ci.org/hirthwork/xyntafs.png)](https://travis-ci.org/hirthwork/xyntafs) [![Coverage Status](https://coveralls.io/repos/github/hirthwork/xyntafs/badge.svg?branch=master)](https://coveralls.io/github/hirthwork/xyntafs?branch=master)
+# XYNTA FS
 ## Overview
 Tired of tons of disorganized exploitable memes pictures on your hard drive, but can't remember where you saved appropriate ones when you so desperately need them? Forget about this pain. XYNTA FS will help you to organize your pictures, photos, books and documents so you could find desired one in no time.
 ## How does it work?
