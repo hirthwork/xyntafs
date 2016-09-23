@@ -11,8 +11,6 @@ addons:
             - fuse
 before_install:
     - pip install --user cpp-coveralls
-    - sudo mknod /dev/fuse c 10 229
-    - sudo chmod 666 /dev/fuse
 script:
     - make test CFLAGS="-O0 --coverage" CXX="g++-6"
 after_success:
