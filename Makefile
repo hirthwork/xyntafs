@@ -139,14 +139,17 @@ $(testdir)/errors/run:
 	# pass invalid option
 	echo '! $(target) -d $(abspath $(dir $@)ndata) -X -- $(dir $@)mount' \
 	    | sh
+	# request help
+	$(target) -h
 	# `forget' to pass data dir
 	echo '! $(target) -- $(dir $@)mount' | sh
-	# ok, test runtime errors
+	# ok, test runtime errors on invalid paths
 	$(target) -d $(abspath $(dir $@)data) -m0 -- $(dir $@)mount
 	test ! -d $(dir $@)mount/tag1/tag2
 	test ! -f $(dir $@)mount/tag1/file2
-	test -f $(dir $@)mount/tag1/file1
+	test ! -e $(dir $@)mount/something
 	# let's remove file and try access it
+	test -f $(dir $@)mount/tag1/file1
 	rm $(dir $@)data/file1
 	test ! -f $(dir $@)mount/tag1/file1
 	touch $@
