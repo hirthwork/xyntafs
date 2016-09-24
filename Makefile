@@ -134,6 +134,10 @@ $(testdir)/errors/run:
 	ln -s nowhere-is-here $(dir $@)data/file6
 	echo '! $(target) -d $(dir $@)data -m0 -- $(dir $@)mount' | sh
 	rm $(dir $@)data/file6
+	# create pipe
+	mknod $(dir $@)data/fipe p
+	echo '! $(target) -d $(dir $@)data -m0 -- $(dir $@)mount' | sh
+	rm $(dir $@)data/fipe
 	# try load data from non-existing dir
 	echo '! $(target) -d $(dir $@)ndata -m0 -- $(dir $@)mount' | sh
 	# pass invalid option
