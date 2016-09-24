@@ -80,7 +80,7 @@ $(testdir)/basic-listing/run:
 	/bin/echo "file4 content" > $(dir $@)data/dir2/subdir1/file4
 	setfattr -n user.xynta.tags -v 'tag1 tag2' $(dir $@)data/dir1/file2
 	setfattr -n user.xynta.tags -v 'tag1' $(dir $@)data/dir2/subdir1/file3
-	setfattr -n user.xynta.tags -v 'dir1 tag1 tag3 multi\ w\\rd' \
+	setfattr -n user.xynta.tags -v 'dir1 tag1 tag3 multi\ w\\\\rd' \
 	    $(dir $@)data/dir2/subdir1/file4
 	$(target) -d $(abspath $(dir $@)data) -m0 -- $(dir $@)mount
 	test "$$(/bin/echo -e 'dir1\ndir2\nfile1.xml\nfile2\nfile3\nfile4'; \
