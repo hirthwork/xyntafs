@@ -9,6 +9,7 @@
 #include <string>           // std::string, std::stoul
 
 #include "fs.hpp"
+#include "util.hpp"         // xynta::exception_to_errno
 
 void xynta_lookup(fuse_req_t req, fuse_ino_t parent, const char* name);
 void xynta_forget(fuse_req_t req, fuse_ino_t ino, unsigned long nlookup);
@@ -57,7 +58,8 @@ void usage(const char* argv0, std::ostream& out) {
         << std::endl;
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[])
+try {
     std::string data_dir;
     std::size_t min_files = 10;
     struct option opts[] = {
@@ -138,5 +140,8 @@ int main(int argc, char* argv[]) {
     }
     fuse_opt_free_args(&args);
     return rc;
+} catch (std::exception& e) {
+    std::cerr << e.what() << std::endl;
+    return xynta::exception_to_errno();
 }
 
