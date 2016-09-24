@@ -6,7 +6,7 @@ addons:
         sources:
             - ubuntu-toolchain-r-test
         packages:
-            - g++-6
+            - g++-4.9
             - libfuse-dev
             - fuse
             - attr
@@ -14,6 +14,6 @@ before_install:
     - pip install --user cpp-coveralls
     - sudo chmod 666 /dev/fuse
 script:
-    - make test CXX="g++-6" CFLAGS="-O0 --coverage" LDFLAGS="-Wl,-Bstatic -lfuse -Wl,-Bdynamic -ldl"
+    - make test CXX="g++-4.9" CFLAGS="-O0 --coverage" LDFLAGS="-Wl,-Bstatic -lfuse -Wl,-Bdynamic -ldl"
 after_success:
-    - coveralls --gcov gcov-6 --gcov-options '\-lp'
+    - coveralls --gcov-options '\-lp'
