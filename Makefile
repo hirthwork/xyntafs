@@ -80,17 +80,17 @@ $(testdir)/basic-listing/run:
 	/bin/echo "file4 content" > $(dir $@)data/dir2/subdir1/file4
 	setfattr -n user.xynta.tags -v 'tag1 tag2' $(dir $@)data/dir1/file2
 	setfattr -n user.xynta.tags -v 'tag1' $(dir $@)data/dir2/subdir1/file3
-	setfattr -n user.xynta.tags -v 'dir1 tag1 tag3' \
+	setfattr -n user.xynta.tags -v 'dir1 tag1 tag3 multi\ w\\rd' \
 	    $(dir $@)data/dir2/subdir1/file4
 	$(target) -d $(abspath $(dir $@)data) -m0 $(dir $@)mount
 	test "$$(/bin/echo -e 'dir1\ndir2\nfile1\nfile2\nfile3\nfile4'; \
-	    /bin/echo -e 'subdir1\ntag1\ntag2\ntag3')" = \
+	    /bin/echo -e 'multi w\\rd\nsubdir1\ntag1\ntag2\ntag3')" = \
 	    "$$(ls $(dir $@)mount)"
 	test "$$(/bin/echo -e 'dir2\nfile1\nfile2\nfile4'; \
-	    /bin/echo -e 'subdir1\ntag1\ntag2\ntag3')" = \
+	    /bin/echo -e 'multi w\\rd\nsubdir1\ntag1\ntag2\ntag3')" = \
 	    "$$(ls $(dir $@)mount/dir1)"
 	test "$$(/bin/echo -e 'dir1\ndir2\nfile2\nfile3\nfile4'; \
-	    /bin/echo -e 'subdir1\ntag2\ntag3')" = \
+	    /bin/echo -e 'multi w\\rd\nsubdir1\ntag2\ntag3')" = \
 	    "$$(ls $(dir $@)mount/tag1)"
 	# repeat same tests with default min-files
 	fusermount -z -u $(dir $@)mount
@@ -106,6 +106,7 @@ $(testdir)/basic-listing/run:
 	/bin/echo "file2 content" | diff - $(dir $@)mount/tag2/tag1/file2
 	/bin/echo "file3 content" | diff - $(dir $@)mount/subdir1/file3
 	/bin/echo "file4 content" | diff - $(dir $@)mount/dir1/tag3/file4
+	/bin/echo "file4 content" | diff - $(dir $@)mount/multi\ w\\rd/file4
 	touch $@
 
 $(testdir)/errors/run:
