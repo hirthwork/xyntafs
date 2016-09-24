@@ -9,6 +9,7 @@ addons:
             - g++-6
             - libfuse-dev
             - fuse
+            - attr
 before_install:
     - pip install --user cpp-coveralls
 script:
