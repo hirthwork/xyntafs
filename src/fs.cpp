@@ -1,5 +1,6 @@
 #include <dirent.h>
 #include <fuse_lowlevel.h>
+#include <stdlib.h>         // realpath, free
 #include <sys/stat.h>
 #include <sys/types.h>      // DIR
 #include <sys/xattr.h>      // getxattr
@@ -62,7 +63,12 @@ void xynta::fs::process_dir(
         if (*dirent->d_name != '.') {
             auto current_tags = tags;
             std::string name{dirent->d_name};
-            auto path = root + name;
+            char* fullpath = realpath((root + name).c_str(), nullptr);
+            if (!fullpath) {
+                throw std::system_error(errno, std::system_category());
+            }
+            std::string path{fullpath};
+            free(fullpath);
             struct stat stat;
             if (::stat(path.c_str(), &stat)) {
                 throw std::system_error(errno, std::system_category());
