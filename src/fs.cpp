@@ -93,6 +93,7 @@ void xynta::fs::process_file(
     std::string&& path,
     std::vector<fuse_ino_t>&& tags)
 {
+    load_tags(tags, path.c_str());
     files_ino_counter += 2;
     auto emplace_result =
         name_to_ino.emplace(std::move(filename), files_ino_counter);
@@ -106,7 +107,6 @@ void xynta::fs::process_file(
         }
     }
     all_files.push_back(files_ino_counter);
-    load_tags(tags, path.c_str());
     std::sort(tags.begin(), tags.end());
     tags.erase(std::unique(tags.begin(), tags.end()), tags.end());
     for (const auto& tag: tags) {
