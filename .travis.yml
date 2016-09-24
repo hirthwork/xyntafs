@@ -14,8 +14,10 @@ before_install:
     - pip install --user cpp-coveralls
     - sudo chmod 666 /dev/fuse
 script:
-    - make test CXX="g++-4.9" CFLAGS="-O0 --coverage" LDFLAGS="-Wl,-Bstatic -lfuse -Wl,-Bdynamic -ldl"
+    - make test CXX="g++-4.9" CFLAGS="-O0 --coverage -fprofile-dir=$TRAVIS_BUILD_DIR" LDFLAGS="-Wl,-Bstatic -lfuse -Wl,-Bdynamic -ldl"
     - find -type f
 after_success:
-    - coveralls --verbose --gcov gcov-4.9 --gcov-options '\-lp'
+    - coveralls --gcov gcov-4.9 --gcov-options '\-lp'
     - find -type f
+    - echo $TRAVIS_BUILD_DIR
+    - pwd
