@@ -1,0 +1,17 @@
+os: linux
+compiler: gcc
+language: cpp
+addons:
+    apt:
+        sources:
+            - ubuntu-toolchain-r-test
+        packages:
+            - g++-6
+            - libfuse-dev
+            - fuse
+before_install:
+    - pip install --user cpp-coveralls
+script:
+    - make test CXX="g++-6" CFLAGS="-O0 --coverage" LDFLAGS="-Wl,-Bstatic -lfuse -Wl,-Bdynamic -ldl"
+after_success:
+    - coveralls --gcov-options '\-lp'
