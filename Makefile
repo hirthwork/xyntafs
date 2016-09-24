@@ -20,13 +20,14 @@ endif
 COMPILERS_LIST = g++-4.9.3 g++-5.4.0 g++-6.2.0 clang++
 
 builddir = build
-testdir = $(builddir)/test
+target = $(builddir)/xynta
 headers = $(shell find src -type f -name \*.hpp)
 sources = $(shell find src -type f -name \*.cpp)
-tests = basic-listing
+
+tests = basic-listing errors
+testdir = $(builddir)/test
 tests-base = $(addprefix $(testdir)/,$(tests))
 tests-done = $(addsuffix /done,$(tests-base))
-target = $(builddir)/xynta
 
 .PHONY: clean test full-test
 
@@ -105,5 +106,32 @@ $(testdir)/basic-listing/run:
 	/bin/echo "file2 content" | diff - $(dir $@)mount/tag2/tag1/file2
 	/bin/echo "file3 content" | diff - $(dir $@)mount/subdir1/file3
 	/bin/echo "file4 content" | diff - $(dir $@)mount/dir1/tag3/file4
+	touch $@
+
+$(testdir)/errors/run:
+	rm $(dir $@)prepare
+	/bin/echo "file1 content" > $(dir $@)data/file1
+	setfattr -n user.xynta.tags -v tag1 $(dir $@)data/file1
+	/bin/echo "file2 content" > $(dir $@)data/file2
+	setfattr -n user.xynta.tags -v tag2 $(dir $@)data/file2
+	# create file/tag name collision
+	/bin/echo "file3 content" > $(dir $@)data/tag1
+	echo '! $(target) -d $(abspath $(dir $@)data) -m0 $(dir $@)mount' | sh
+	rm $(dir $@)data/tag1
+	# create file names collision
+	mkdir $(dir $@)data/dir
+	/bin/echo "file4 content" > $(dir $@)data/dir/file1
+	echo '! $(target) -d $(abspath $(dir $@)data) -m0 $(dir $@)mount' | sh
+	rm -r $(dir $@)data/dir
+	# try load data from non-existing dir
+	echo '! $(target) -d $(abspath $(dir $@)ndata) -m0 $(dir $@)mount' | sh
+	# ok, test runtime errors
+	$(target) -d $(abspath $(dir $@)data) -m0 $(dir $@)mount
+	test ! -d $(dir $@)mount/tag1/tag2
+	test ! -f $(dir $@)mount/tag1/file2
+	test -f $(dir $@)mount/tag1/file1
+	# let's remove file and try access it
+	rm $(dir $@)data/file1
+	test ! -f $(dir $@)mount/tag1/file1
 	touch $@
 
