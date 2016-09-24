@@ -125,6 +125,10 @@ $(testdir)/errors/run:
 	rm -r $(dir $@)data/dir
 	# try load data from non-existing dir
 	echo '! $(target) -d $(abspath $(dir $@)ndata) -m0 $(dir $@)mount' | sh
+	# pass invalid option
+	echo '! $(target) -d $(abspath $(dir $@)ndata) -X $(dir $@)mount' | sh
+	# `forget' to pass data dir
+	echo '! $(target) $(dir $@)mount' | sh
 	# ok, test runtime errors
 	$(target) -d $(abspath $(dir $@)data) -m0 $(dir $@)mount
 	test ! -d $(dir $@)mount/tag1/tag2
