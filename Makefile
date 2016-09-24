@@ -152,5 +152,7 @@ $(testdir)/errors/run:
 	test -f $(dir $@)mount/tag1/file1
 	rm $(dir $@)data/file1
 	test ! -f $(dir $@)mount/tag1/file1
+	# let's try to append something to file
+	echo '! echo >> $(dir $@)mount/file2' | sh
 	touch $@
 
