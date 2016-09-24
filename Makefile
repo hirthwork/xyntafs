@@ -55,14 +55,14 @@ test: $(tests-done)
 
 $(tests-done) : $(testdir)/%/done : $(testdir)/%/run
 	@/bin/echo -e "\n[Successfully completed test $(notdir $*)]"
-	fusermount -q -u $(dir $@)mount || umount -f $(dir $@)mount || true
+	fusermount -z -q -u $(dir $@)mount || true
 	touch $@ $(dir $@)run $(dir $@)prepare
 
 $(addsuffix /run,$(tests-base)) : $(testdir)/%/run : $(testdir)/%/prepare
 
 $(addsuffix /prepare,$(tests-base)) : %/prepare : $(target) | $(testdir)
 	@/bin/echo -e "\n[Preparing environment for test $(notdir $*)]"
-	fusermount -q -u $(dir $@)mount || umount -f $(dir $@)mount || true
+	fusermount -z -q -u $(dir $@)mount || true
 	rm -rf $(dir $@)data $(dir $@)mount
 	mkdir -p $(dir $@)data $(dir $@)mount
 	touch $@
@@ -92,7 +92,7 @@ $(testdir)/basic-listing/run:
 	    /bin/echo -e 'subdir1\ntag2\ntag3')" = \
 	    "$$(ls $(dir $@)mount/tag1)"
 	# repeat same tests with default min-files
-	fusermount -u $(dir $@)mount || umount -f $(dir $@)mount
+	fusermount -z -u $(dir $@)mount
 	$(target) -d $(abspath $(dir $@)data) $(dir $@)mount
 	test "$$(/bin/echo -e 'file1\nfile2\nfile3\nfile4')" = \
 	    "$$(ls $(dir $@)mount)"
