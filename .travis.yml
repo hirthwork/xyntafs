@@ -1,6 +1,8 @@
 os: linux
 compiler: gcc
 language: cpp
+sudo: required
+dist: trusty
 addons:
     apt:
         sources:
