@@ -12,10 +12,12 @@ addons:
             - libfuse-dev
             - fuse
             - attr
+            - lcov
 before_install:
-    - pip install --user cpp-coveralls
+    - gem install coveralls-lcov
     - sudo chmod 666 /dev/fuse
 script:
     - make test CXX="g++-4.9" CFLAGS="-O0 --coverage" LDFLAGS="-Wl,-Bstatic -lfuse -Wl,-Bdynamic -ldl"
 after_success:
-    - coveralls --gcov gcov-4.9 --gcov-options '\-lp'
+    - lcov --compat-libtool --directory . --capture --output-file coverage.info
+    - coveralls-lcov coverage.info
