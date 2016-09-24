@@ -92,9 +92,9 @@ $(testdir)/basic-listing/run:
 	test "$$(/bin/echo -e 'dir1\ndir2\nfile2\nfile3\nfile4'; \
 	    /bin/echo -e 'multi w\\rd\nsubdir1\ntag2\ntag3')" = \
 	    "$$(ls $(dir $@)mount/tag1)"
-	# repeat same tests with default min-files
+	# repeat same tests with default min-files and single thread
 	fusermount -z -u $(dir $@)mount
-	$(target) -d $(abspath $(dir $@)data) -- $(dir $@)mount
+	$(target) -d $(abspath $(dir $@)data) -- -s $(dir $@)mount
 	test "$$(/bin/echo -e 'file1.xml\nfile2\nfile3\nfile4')" = \
 	    "$$(ls $(dir $@)mount)"
 	test "$$(/bin/echo -e 'file1.xml\nfile2\nfile4')" = \
