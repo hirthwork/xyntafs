@@ -74,7 +74,7 @@ $(testdir)/basic-listing/run:
 	mkdir $(dir $@)data/dir1
 	mkdir $(dir $@)data/dir2
 	mkdir $(dir $@)data/dir2/subdir1
-	/bin/echo "file1 content" > $(dir $@)data/dir1/file1
+	/bin/echo "file1 content" > $(dir $@)data/dir1/file1.xml
 	/bin/echo "file2 content" > $(dir $@)data/dir1/file2
 	/bin/echo "file3 content" > $(dir $@)data/dir2/subdir1/file3
 	/bin/echo "file4 content" > $(dir $@)data/dir2/subdir1/file4
@@ -82,27 +82,28 @@ $(testdir)/basic-listing/run:
 	setfattr -n user.xynta.tags -v 'tag1' $(dir $@)data/dir2/subdir1/file3
 	setfattr -n user.xynta.tags -v 'dir1 tag1 tag3 multi\ w\\rd' \
 	    $(dir $@)data/dir2/subdir1/file4
-	$(target) -d $(abspath $(dir $@)data) -m0 $(dir $@)mount
-	test "$$(/bin/echo -e 'dir1\ndir2\nfile1\nfile2\nfile3\nfile4'; \
-	    /bin/echo -e 'multi w\\rd\nsubdir1\ntag1\ntag2\ntag3')" = \
+	$(target) -d $(abspath $(dir $@)data) -m0 -- $(dir $@)mount
+	test "$$(/bin/echo -e 'dir1\ndir2\nfile1.xml\nfile2\nfile3\nfile4'; \
+	    /bin/echo -e 'multi w\\rd\nsubdir1\ntag1\ntag2\ntag3\nxml')" = \
 	    "$$(ls $(dir $@)mount)"
-	test "$$(/bin/echo -e 'dir2\nfile1\nfile2\nfile4'; \
-	    /bin/echo -e 'multi w\\rd\nsubdir1\ntag1\ntag2\ntag3')" = \
+	test "$$(/bin/echo -e 'dir2\nfile1.xml\nfile2\nfile4'; \
+	    /bin/echo -e 'multi w\\rd\nsubdir1\ntag1\ntag2\ntag3\nxml')" = \
 	    "$$(ls $(dir $@)mount/dir1)"
 	test "$$(/bin/echo -e 'dir1\ndir2\nfile2\nfile3\nfile4'; \
 	    /bin/echo -e 'multi w\\rd\nsubdir1\ntag2\ntag3')" = \
 	    "$$(ls $(dir $@)mount/tag1)"
 	# repeat same tests with default min-files
 	fusermount -z -u $(dir $@)mount
-	$(target) -d $(abspath $(dir $@)data) $(dir $@)mount
-	test "$$(/bin/echo -e 'file1\nfile2\nfile3\nfile4')" = \
+	$(target) -d $(abspath $(dir $@)data) -- $(dir $@)mount
+	test "$$(/bin/echo -e 'file1.xml\nfile2\nfile3\nfile4')" = \
 	    "$$(ls $(dir $@)mount)"
-	test "$$(/bin/echo -e 'file1\nfile2\nfile4')" = \
+	test "$$(/bin/echo -e 'file1.xml\nfile2\nfile4')" = \
 	    "$$(ls $(dir $@)mount/dir1)"
 	test "$$(/bin/echo -e 'file2\nfile3\nfile4')" = \
 	    "$$(ls $(dir $@)mount/tag1)"
 	# test file contents
-	/bin/echo "file1 content" | diff - $(dir $@)mount/file1
+	/bin/echo "file1 content" | diff - $(dir $@)mount/file1.xml
+	/bin/echo "file1 content" | diff - $(dir $@)mount/xml/file1.xml
 	/bin/echo "file2 content" | diff - $(dir $@)mount/tag2/tag1/file2
 	/bin/echo "file3 content" | diff - $(dir $@)mount/subdir1/file3
 	/bin/echo "file4 content" | diff - $(dir $@)mount/dir1/tag3/file4
@@ -117,21 +118,31 @@ $(testdir)/errors/run:
 	setfattr -n user.xynta.tags -v tag2 $(dir $@)data/file2
 	# create file/tag name collision
 	/bin/echo "file3 content" > $(dir $@)data/tag1
-	echo '! $(target) -d $(abspath $(dir $@)data) -m0 $(dir $@)mount' | sh
+	echo '! $(target) -d $(abspath $(dir $@)data) -m0 -- $(dir $@)mount' \
+	    | sh
 	rm $(dir $@)data/tag1
+	# create file/tag self collision
+	/bin/echo "file4 content" > $(dir $@)data/file4
+	setfattr -n user.xynta.tags -v file4 $(dir $@)data/file4
+	echo '! $(target) -d $(abspath $(dir $@)data) -m0 -- $(dir $@)mount' \
+	    | sh
+	rm $(dir $@)data/file4
 	# create file names collision
 	mkdir $(dir $@)data/dir
-	/bin/echo "file4 content" > $(dir $@)data/dir/file1
-	echo '! $(target) -d $(abspath $(dir $@)data) -m0 $(dir $@)mount' | sh
+	/bin/echo "file5 content" > $(dir $@)data/dir/file1
+	echo '! $(target) -d $(abspath $(dir $@)data) -m0 -- $(dir $@)mount' \
+	    | sh
 	rm -r $(dir $@)data/dir
 	# try load data from non-existing dir
-	echo '! $(target) -d $(abspath $(dir $@)ndata) -m0 $(dir $@)mount' | sh
+	echo '! $(target) -d $(abspath $(dir $@)ndata) -m0 -- $(dir $@)mount' \
+	    | sh
 	# pass invalid option
-	echo '! $(target) -d $(abspath $(dir $@)ndata) -X $(dir $@)mount' | sh
+	echo '! $(target) -d $(abspath $(dir $@)ndata) -X -- $(dir $@)mount' \
+	    | sh
 	# `forget' to pass data dir
-	echo '! $(target) $(dir $@)mount' | sh
+	echo '! $(target) -- $(dir $@)mount' | sh
 	# ok, test runtime errors
-	$(target) -d $(abspath $(dir $@)data) -m0 $(dir $@)mount
+	$(target) -d $(abspath $(dir $@)data) -m0 -- $(dir $@)mount
 	test ! -d $(dir $@)mount/tag1/tag2
 	test ! -f $(dir $@)mount/tag1/file2
 	test -f $(dir $@)mount/tag1/file1
