@@ -31,7 +31,7 @@ target = $(builddir)/xynta
 .PHONY: clean test full-test
 
 $(target): Makefile $(headers) $(sources) | $(builddir)
-	$(CXX) $(CFLAGS) $(CXXFLAGS) $(LDFLAGS) $(sources) -o $@
+	$(CXX) $(CFLAGS) $(CXXFLAGS) $(sources) $(LDFLAGS) -o $@
 
 $(builddir):
 	mkdir -p $(builddir)
@@ -47,24 +47,24 @@ clean:
 
 full-test:
 	for x in $(COMPILERS_LIST); do \
-	    echo -e "\n[Running test for $$x]"; \
+	    /bin/echo -e "\n[Running tests for $$x]"; \
 	    $(MAKE) CXX=$$x builddir=$(builddir)/$$x test || exit 1; \
 	done
 
 test: $(tests-done)
 
 $(tests-done) : $(testdir)/%/done : $(testdir)/%/run
-	@echo "[Successfully completed test $(notdir $*)]"
+	@/bin/echo -e "\n[Successfully completed test $(notdir $*)]"
 	fusermount -q -u $(dir $@)mount || true
-	touch $@ $(dir $@){run,prepare}
+	touch $@ $(dir $@)run $(dir $@)prepare
 
 $(addsuffix /run,$(tests-base)) : $(testdir)/%/run : $(testdir)/%/prepare
 
 $(addsuffix /prepare,$(tests-base)) : %/prepare : $(target) | $(testdir)
-	@echo "[Preparing environment for test $(notdir $*)]"
+	@/bin/echo -e "\n[Preparing environment for test $(notdir $*)]"
 	fusermount -q -u $(dir $@)mount || true
-	rm -rf $(dir $@){data,mount}
-	mkdir -p $(dir $@){data,mount}
+	rm -rf $(dir $@)data $(dir $@)mount
+	mkdir -p $(dir $@)data $(dir $@)mount
 	touch $@
 
 $(testdir)/basic-listing/run:
@@ -73,35 +73,37 @@ $(testdir)/basic-listing/run:
 	mkdir $(dir $@)data/dir1
 	mkdir $(dir $@)data/dir2
 	mkdir $(dir $@)data/dir2/subdir1
-	echo "file1 content" > $(dir $@)data/dir1/file1
-	echo "file2 content" > $(dir $@)data/dir1/file2
-	echo "file3 content" > $(dir $@)data/dir2/subdir1/file3
-	echo "file4 content" > $(dir $@)data/dir2/subdir1/file4
+	/bin/echo "file1 content" > $(dir $@)data/dir1/file1
+	/bin/echo "file2 content" > $(dir $@)data/dir1/file2
+	/bin/echo "file3 content" > $(dir $@)data/dir2/subdir1/file3
+	/bin/echo "file4 content" > $(dir $@)data/dir2/subdir1/file4
 	setfattr -n user.xynta.tags -v 'tag1 tag2' $(dir $@)data/dir1/file2
 	setfattr -n user.xynta.tags -v 'tag1' $(dir $@)data/dir2/subdir1/file3
 	setfattr -n user.xynta.tags -v 'dir1 tag1 tag3' \
 	    $(dir $@)data/dir2/subdir1/file4
 	$(target) -d $(abspath $(dir $@)data) -m0 $(dir $@)mount
-	test "$$(echo -e 'dir1\ndir2\nfile1\nfile2\nfile3\nfile4'; \
-	    echo -e 'subdir1\ntag1\ntag2\ntag3')" = \
+	test "$$(/bin/echo -e 'dir1\ndir2\nfile1\nfile2\nfile3\nfile4'; \
+	    /bin/echo -e 'subdir1\ntag1\ntag2\ntag3')" = \
 	    "$$(ls $(dir $@)mount)"
-	test "$$(echo -e 'dir2\nfile1\nfile2\nfile4'; \
-	    echo -e 'subdir1\ntag1\ntag2\ntag3')" = \
+	test "$$(/bin/echo -e 'dir2\nfile1\nfile2\nfile4'; \
+	    /bin/echo -e 'subdir1\ntag1\ntag2\ntag3')" = \
 	    "$$(ls $(dir $@)mount/dir1)"
-	test "$$(echo -e 'dir1\ndir2\nfile2\nfile3\nfile4'; \
-	    echo -e 'subdir1\ntag2\ntag3')" = \
+	test "$$(/bin/echo -e 'dir1\ndir2\nfile2\nfile3\nfile4'; \
+	    /bin/echo -e 'subdir1\ntag2\ntag3')" = \
 	    "$$(ls $(dir $@)mount/tag1)"
 	# repeat same tests with default min-files
 	fusermount -u $(dir $@)mount
 	$(target) -d $(abspath $(dir $@)data) $(dir $@)mount
-	test "$$(echo -e 'file1\nfile2\nfile3\nfile4')" = \
+	test "$$(/bin/echo -e 'file1\nfile2\nfile3\nfile4')" = \
 	    "$$(ls $(dir $@)mount)"
-	test "$$(echo -e 'file1\nfile2\nfile4')" = "$$(ls $(dir $@)mount/dir1)"
-	test "$$(echo -e 'file2\nfile3\nfile4')" = "$$(ls $(dir $@)mount/tag1)"
+	test "$$(/bin/echo -e 'file1\nfile2\nfile4')" = \
+	    "$$(ls $(dir $@)mount/dir1)"
+	test "$$(/bin/echo -e 'file2\nfile3\nfile4')" = \
+	    "$$(ls $(dir $@)mount/tag1)"
 	# test file contents
-	echo "file1 content" | diff - $(dir $@)mount/file1
-	echo "file2 content" | diff - $(dir $@)mount/tag2/tag1/file2
-	echo "file3 content" | diff - $(dir $@)mount/subdir1/file3
-	echo "file4 content" | diff - $(dir $@)mount/dir1/tag3/file4
+	/bin/echo "file1 content" | diff - $(dir $@)mount/file1
+	/bin/echo "file2 content" | diff - $(dir $@)mount/tag2/tag1/file2
+	/bin/echo "file3 content" | diff - $(dir $@)mount/subdir1/file3
+	/bin/echo "file4 content" | diff - $(dir $@)mount/dir1/tag3/file4
 	touch $@
 
