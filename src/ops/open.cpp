@@ -1,9 +1,10 @@
-#include <fcntl.h>          // open & O_RDONLY
+#include <fcntl.h>          // O_RDONLY
 #include <fuse_lowlevel.h>
-#include <unistd.h>         // close
 
-#include <cerrno>
+#include <memory>           // std::unique_ptr
 
+#include <file.hpp>
+#include <file_handle.hpp>
 #include <fs.hpp>
 #include <util.hpp>         // xynta::exception_to_errno
 
@@ -11,15 +12,12 @@ void xynta_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info* fi)
 try {
     if ((fi->flags & 3) == O_RDONLY) {
         auto& fs = *reinterpret_cast<xynta::fs*>(fuse_req_userdata(req));
-        const auto& file_info = fs.get_file_info(ino);
-        int fd = open(file_info.path.c_str(), fi->flags);
-        if (fd == -1) {
-            fuse_reply_err(req, errno);
-        } else {
-            fi->fh = fd;
-            if (fuse_reply_open(req, fi)) {
-                close(fd);
-            }
+        std::unique_ptr<xynta::file_handle> file{
+            new xynta::file{fs.get_file_info(ino).path, fi->flags}};
+        fi->fh = reinterpret_cast<decltype(fi->fh)>(file.get());
+        if (!fuse_reply_open(req, fi)) {
+            // reply successful, release the pointer as it already stored in fh
+            file.release();
         }
     } else {
         fuse_reply_err(req, EACCES);

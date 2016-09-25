@@ -1,10 +1,8 @@
 #include <fuse_lowlevel.h>
-#include <unistd.h>         // pread
-
-#include <cerrno>
 
 #include <memory>           // std::make_unique
 
+#include <file_handle.hpp>
 #include <util.hpp>         // xynta::exception_to_errno
 
 void xynta_read(
@@ -15,21 +13,11 @@ void xynta_read(
     struct fuse_file_info* fi)
 try {
     auto buf = std::make_unique<char[]>(size);
-    char* out = buf.get();
-    do {
-        ssize_t read = pread(fi->fh, out, size, off);
-        if (read == -1) {
-            fuse_reply_err(req, errno);
-            return;
-        } else if (read) {
-            out += read;
-            off += read;
-            size -= read;
-        } else {
-            break;
-        }
-    } while (size);
-    fuse_reply_buf(req, buf.get(), out - buf.get());
+    fuse_reply_buf(
+        req,
+        buf.get(),
+        reinterpret_cast<xynta::file_handle*>(fi->fh)
+            ->read(buf.get(), size, off));
 } catch (...) {
     fuse_reply_err(req, xynta::exception_to_errno());
 }
