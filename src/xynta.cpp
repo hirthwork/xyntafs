@@ -7,6 +7,7 @@
 #include <cstring>          // std::memset
 #include <iostream>         // std::cout, std::cerr
 #include <string>           // std::string, std::stoul
+#include <utility>          // std::move
 
 #include "fs.hpp"
 #include "util.hpp"         // xynta::exception_to_errno
@@ -49,11 +50,6 @@ void usage(const char* argv0, std::ostream& out) {
         << "  -d, --data-dir=<data-dir>     Directory with files and tags to "
         << "mount."
         << std::endl
-        << "  -m, --min-files=<N>           Minimal files in directory to "
-        << "have tags being shown."
-        << std::endl
-        << "                                Default is 10."
-        << std::endl
         << "  -h, --help                    Give this help list."
         << std::endl;
 }
@@ -61,24 +57,19 @@ void usage(const char* argv0, std::ostream& out) {
 int main(int argc, char* argv[])
 try {
     std::string data_dir;
-    std::size_t min_files = 10;
     struct option opts[] = {
         {"help",        no_argument,        nullptr, 'h'},
         {"data-dir",    required_argument,  nullptr, 'd'},
-        {"min-files",   required_argument,  nullptr, 'm'},
         {nullptr,       0,                  nullptr,  0 }
     };
     int opt;
-    while ((opt = getopt_long(argc, argv, "hd:m:", opts, nullptr)) != -1) {
+    while ((opt = getopt_long(argc, argv, "hd:", opts, nullptr)) != -1) {
         switch (opt) {
             case 'h':
                 usage(argv[0], std::cout);
                 return 0;
             case 'd':
                 data_dir = optarg;
-                break;
-            case 'm':
-                min_files = std::stoul(optarg);
                 break;
             default:
                 std::cerr << "Unrecognized option '" << (char) opt << '\''
@@ -94,7 +85,7 @@ try {
         return 1;
     }
 
-    xynta::fs fs(data_dir, min_files);
+    xynta::fs fs(std::move(data_dir));
     struct fuse_lowlevel_ops ops;
     std::memset(&ops, 0, sizeof ops);
     ops.lookup = xynta_lookup;

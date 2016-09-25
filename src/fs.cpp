@@ -41,10 +41,9 @@ public:
     }
 };
 
-xynta::fs::fs(std::string root, std::size_t min_files)
+xynta::fs::fs(std::string&& root)
     : folders_ino_counter{FUSE_ROOT_ID}
     , files_ino_counter{}
-    , min_files(min_files)
 {
     root.push_back('/');
     process_dir({}, root);

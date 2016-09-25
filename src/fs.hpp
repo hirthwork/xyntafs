@@ -73,9 +73,7 @@ class fs {
     fuse_ino_t add_tag(std::string&& tag);
 
 public:
-    const std::size_t min_files;
-
-    fs(std::string root, std::size_t min_files);
+    fs(std::string&& root);
 
     fs(const fs&) = delete;
     fs& operator =(const fs&) = delete;
