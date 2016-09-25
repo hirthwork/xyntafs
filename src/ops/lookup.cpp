@@ -16,45 +16,45 @@
 void xynta_lookup(fuse_req_t req, fuse_ino_t parent, const char* psz)
 try {
     auto& fs = *reinterpret_cast<xynta::fs*>(fuse_req_userdata(req));
-    auto& parent_folder_info = fs.get_folder_info(parent);
+    auto& parent_folder_node = fs.get_folder_node(parent);
     auto ino = fs.ino(psz);
     if (ino & 1) {
         // this is a tag
         // check for duplicated tags
         auto tag_pos = std::lower_bound(
-            parent_folder_info.path.begin(),
-            parent_folder_info.path.end(),
+            parent_folder_node.path.begin(),
+            parent_folder_node.path.end(),
             ino);
-        if (tag_pos != parent_folder_info.path.end() && *tag_pos == ino) {
+        if (tag_pos != parent_folder_node.path.end() && *tag_pos == ino) {
             // duplicated tags in path are forbidden
             fuse_reply_err(req, ENOENT);
         } else {
-            xynta::folder_info folder_info;
-            folder_info.path.reserve(parent_folder_info.path.size() + 1);
-            folder_info.path.insert(
-                folder_info.path.end(),
-                parent_folder_info.path.begin(),
+            xynta::folder_node folder_node;
+            folder_node.path.reserve(parent_folder_node.path.size() + 1);
+            folder_node.path.insert(
+                folder_node.path.end(),
+                parent_folder_node.path.begin(),
                 tag_pos);
-            folder_info.path.push_back(ino);
-            folder_info.path.insert(
-                folder_info.path.end(),
+            folder_node.path.push_back(ino);
+            folder_node.path.insert(
+                folder_node.path.end(),
                 tag_pos,
-                parent_folder_info.path.end());
+                parent_folder_node.path.end());
             auto& tag_files = fs.get_files(ino);
-            folder_info.files.reserve(
-                std::min(parent_folder_info.files.size(), tag_files.size()));
+            folder_node.files.reserve(
+                std::min(parent_folder_node.files.size(), tag_files.size()));
             std::set_intersection(
-                parent_folder_info.files.begin(),
-                parent_folder_info.files.end(),
+                parent_folder_node.files.begin(),
+                parent_folder_node.files.end(),
                 tag_files.begin(),
                 tag_files.end(),
-                std::back_inserter(folder_info.files));
-            if (folder_info.files.empty()) {
+                std::back_inserter(folder_node.files));
+            if (folder_node.files.empty()) {
                 // this folder will be empty, which is currently forbidden
                 fuse_reply_err(req, ENOENT);
             } else {
                 fs.store_folder(
-                    std::move(folder_info),
+                    std::move(folder_node),
                     [req] (fuse_ino_t folder_ino) {
                         struct fuse_entry_param entry;
                         std::memset(&entry, 0, sizeof entry);
@@ -69,8 +69,8 @@ try {
         }
     } else if (ino
         && std::binary_search(
-            parent_folder_info.files.begin(),
-            parent_folder_info.files.end(),
+            parent_folder_node.files.begin(),
+            parent_folder_node.files.end(),
             ino))
     {
         // this is a regular file which belongs to parent directory
