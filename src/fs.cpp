@@ -120,7 +120,10 @@ void xynta::fs::process_file(
     }
     ino_to_file.emplace(
         files_ino_counter,
-        file{emplace_result.first->first, std::move(path), std::move(tags)});
+        file_info{
+            emplace_result.first->first,
+            std::move(path),
+            std::move(tags)});
 }
 
 void xynta::fs::load_tags(std::vector<fuse_ino_t>& tags, const char* path) {

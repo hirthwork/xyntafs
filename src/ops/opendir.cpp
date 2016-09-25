@@ -11,10 +11,10 @@
 void xynta_opendir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info* fi)
 try {
     auto& fs = *reinterpret_cast<xynta::fs*>(fuse_req_userdata(req));
-    auto& files = fs.folder_files(ino);
+    auto& files = fs.get_folder_files(ino);
     std::unordered_map<fuse_ino_t, std::size_t> tags(files.size() << 1);
     for (const auto& file: files) {
-        for (const auto& tag: fs.file_info(file).tags) {
+        for (const auto& tag: fs.get_file_info(file).tags) {
             ++tags[tag];
         }
     }

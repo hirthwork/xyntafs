@@ -11,7 +11,7 @@ void xynta_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info* fi)
 try {
     if ((fi->flags & 3) == O_RDONLY) {
         auto& fs = *reinterpret_cast<xynta::fs*>(fuse_req_userdata(req));
-        const auto& file_info = fs.file_info(ino);
+        const auto& file_info = fs.get_file_info(ino);
         int fd = open(file_info.path.c_str(), fi->flags);
         if (fd == -1) {
             fuse_reply_err(req, errno);

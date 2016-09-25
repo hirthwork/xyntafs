@@ -39,9 +39,9 @@ try {
                 break;
             default:
                 if (ino & 1) {
-                    name = fs.tag_name(ino).c_str();
+                    name = fs.get_tag_name(ino).c_str();
                 } else {
-                    name = fs.file_info(ino).filename.c_str();
+                    name = fs.get_file_info(ino).filename.c_str();
                 }
                 break;
         }

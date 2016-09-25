@@ -16,11 +16,11 @@
 void xynta_lookup(fuse_req_t req, fuse_ino_t parent, const char* psz)
 try {
     auto& fs = *reinterpret_cast<xynta::fs*>(fuse_req_userdata(req));
-    auto& files = fs.folder_files(parent);
+    auto& files = fs.get_folder_files(parent);
     auto ino = fs.ino(psz);
     if (ino & 1) {
         // this is a tag
-        auto& tag_files = fs.files(ino);
+        auto& tag_files = fs.get_files(ino);
         std::decay<decltype(tag_files)>::type result_files;
         result_files.reserve(std::min(files.size(), tag_files.size()));
         std::set_intersection(
@@ -44,11 +44,11 @@ try {
                     return fuse_reply_entry(req, &entry) == 0;
                 });
         }
-    } else if (ino && binary_search(files.begin(), files.end(), ino)) {
+    } else if (ino && std::binary_search(files.begin(), files.end(), ino)) {
         // this is a regular file which belongs to parent directory
         struct fuse_entry_param entry;
         std::memset(&entry, 0, sizeof entry);
-        if (stat(fs.file_info(ino).path.c_str(), &entry.attr)) {
+        if (stat(fs.get_file_info(ino).path.c_str(), &entry.attr)) {
             fuse_reply_err(req, errno);
         } else {
             entry.ino = ino;

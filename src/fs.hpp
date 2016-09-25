@@ -17,7 +17,7 @@ namespace xynta {
 
 typedef std::vector<fuse_ino_t> dir_listing;
 
-struct file {
+struct file_info {
     const std::string& filename;
     const std::string path;
     const std::vector<fuse_ino_t> tags;
@@ -26,7 +26,7 @@ struct file {
 class fs {
     std::unordered_map<std::string, fuse_ino_t> name_to_ino;
     std::unordered_map<fuse_ino_t, const std::string&> ino_to_tag;
-    std::unordered_map<fuse_ino_t, file> ino_to_file;
+    std::unordered_map<fuse_ino_t, file_info> ino_to_file;
 
     std::vector<fuse_ino_t> all_files;
     std::unordered_map<fuse_ino_t, std::vector<fuse_ino_t>> tag_files;
@@ -75,19 +75,19 @@ public:
         }
     }
 
-    const file& file_info(fuse_ino_t ino) const {
+    const file_info& get_file_info(fuse_ino_t ino) const {
         return find(ino_to_file, ino);
     }
 
-    const std::string& tag_name(fuse_ino_t ino) const {
+    const std::string& get_tag_name(fuse_ino_t ino) const {
         return find(ino_to_tag, ino);
     }
 
-    const std::vector<fuse_ino_t>& files(fuse_ino_t ino) const {
+    const std::vector<fuse_ino_t>& get_files(fuse_ino_t ino) const {
         return find(tag_files, ino);
     }
 
-    const std::vector<fuse_ino_t>& folder_files(fuse_ino_t ino) const {
+    const std::vector<fuse_ino_t>& get_folder_files(fuse_ino_t ino) const {
         if (ino == FUSE_ROOT_ID) {
             return all_files;
         } else {
