@@ -2,7 +2,7 @@
 
 #include <memory>           // std::make_unique
 
-#include <file_handle.hpp>
+#include <handle.hpp>
 #include <util.hpp>         // xynta::exception_to_errno
 
 void xynta_read(
@@ -16,7 +16,7 @@ try {
     fuse_reply_buf(
         req,
         buf.get(),
-        reinterpret_cast<xynta::file_handle*>(fi->fh)
+        reinterpret_cast<xynta::handle*>(fi->fh)
             ->read(buf.get(), size, off));
 } catch (...) {
     fuse_reply_err(req, xynta::exception_to_errno());

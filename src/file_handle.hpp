@@ -1,19 +1,25 @@
-#ifndef __XYNTA__FILE_HANDLE_HPP__
-#define __XYNTA__FILE_HANDLE_HPP__
+#ifndef __XYNTA__FILE_HPP__
+#define __XYNTA__FILE_HPP__
 
 #include <cstddef>          // std::size_t
 
+#include <string>
+
+#include <handle.hpp>
+
 namespace xynta {
 
-struct file_handle {
-    file_handle() = default;
-    file_handle(const file_handle&) = delete;
-    file_handle& operator =(const file_handle&) = delete;
-    virtual ~file_handle() = default;
+class file_handle: public handle {
+    const int fd;
 
-    // returns number of bytes read, throws on error
-    // fewer bytes can be returned only at EOF
-    virtual std::size_t read(char* buf, std::size_t size, std::size_t off) = 0;
+public:
+    file_handle(const std::string& path, int flags);
+    virtual ~file_handle() override;
+    virtual std::size_t read(
+        char* buf,
+        std::size_t size,
+        std::size_t off)
+        override;
 };
 
 }

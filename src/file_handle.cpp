@@ -7,9 +7,9 @@
 #include <string>
 #include <system_error>
 
-#include "file.hpp"
+#include "file_handle.hpp"
 
-xynta::file::file(const std::string& path, int flags)
+xynta::file_handle::file_handle(const std::string& path, int flags)
     : fd(open(path.c_str(), flags))
 {
     if (fd == -1) {
@@ -17,11 +17,15 @@ xynta::file::file(const std::string& path, int flags)
     }
 }
 
-xynta::file::~file() {
+xynta::file_handle::~file_handle() {
     close(fd);
 }
 
-std::size_t xynta::file::read(char* buf, std::size_t size, std::size_t off) {
+std::size_t xynta::file_handle::read(
+    char* buf,
+    std::size_t size,
+    std::size_t off)
+{
     char* out = buf;
     do {
         ssize_t read = pread(fd, out, size, off);
