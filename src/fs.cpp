@@ -48,7 +48,7 @@ xynta::fs::fs(std::string root, std::size_t min_files)
 {
     root.push_back('/');
     process_dir({}, root);
-    std::sort(all_files.begin(), all_files.end());
+    std::sort(this->root.files.begin(), this->root.files.end());
     for (auto& tag: tag_files) {
         std::sort(tag.second.begin(), tag.second.end());
     }
@@ -112,7 +112,7 @@ void xynta::fs::process_file(
                 + ino_to_file.find(emplace_result.first->second)->second.path);
         }
     }
-    all_files.push_back(files_ino_counter);
+    root.files.push_back(files_ino_counter);
     std::sort(tags.begin(), tags.end());
     tags.erase(std::unique(tags.begin(), tags.end()), tags.end());
     for (const auto& tag: tags) {

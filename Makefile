@@ -151,8 +151,10 @@ $(testdir)/errors/run:
 	test ! -d $(dir $@)mount/tag1/tag2
 	test ! -f $(dir $@)mount/tag1/file2
 	test ! -e $(dir $@)mount/something
-	# let's remove file and try access it
+	# duplicated tags in path are forbidden
 	test -f $(dir $@)mount/tag1/file1
+	test ! -f $(dir $@)mount/tag1/tag1/file1
+	# let's remove file and try access it
 	rm $(dir $@)data/file1
 	test ! -f $(dir $@)mount/tag1/file1
 	# let's try to append something to file

@@ -19,8 +19,23 @@ typedef std::vector<fuse_ino_t> dir_listing;
 
 struct file_info {
     const std::string& filename;
-    const std::string path;
-    const std::vector<fuse_ino_t> tags;
+    std::string path;
+    std::vector<fuse_ino_t> tags;
+
+    file_info() = default;
+    file_info(file_info&&) = default;
+    file_info(const file_info&) = delete;
+    file_info& operator =(const file_info&) = delete;
+};
+
+struct folder_info {
+    std::vector<fuse_ino_t> path;
+    std::vector<fuse_ino_t> files;
+
+    folder_info() = default;
+    folder_info(folder_info&&) = default;
+    folder_info(const folder_info&) = delete;
+    folder_info& operator =(const folder_info&) = delete;
 };
 
 class fs {
@@ -28,10 +43,10 @@ class fs {
     std::unordered_map<fuse_ino_t, const std::string&> ino_to_tag;
     std::unordered_map<fuse_ino_t, file_info> ino_to_file;
 
-    std::vector<fuse_ino_t> all_files;
+    folder_info root;
     std::unordered_map<fuse_ino_t, std::vector<fuse_ino_t>> tag_files;
 
-    std::unordered_map<fuse_ino_t, std::vector<fuse_ino_t>> folders;
+    std::unordered_map<fuse_ino_t, folder_info> folders;
     mutable std::shared_mutex folders_mutex;
     fuse_ino_t folders_ino_counter;
     fuse_ino_t files_ino_counter;
@@ -87,9 +102,9 @@ public:
         return find(tag_files, ino);
     }
 
-    const std::vector<fuse_ino_t>& get_folder_files(fuse_ino_t ino) const {
+    const folder_info& get_folder_info(fuse_ino_t ino) const {
         if (ino == FUSE_ROOT_ID) {
-            return all_files;
+            return root;
         } else {
             std::shared_lock<std::shared_mutex> lock(folders_mutex);
             return find(folders, ino);
@@ -97,10 +112,10 @@ public:
     }
 
     template <class C>
-    void store_folder(std::vector<fuse_ino_t>&& files, C callback) {
+    void store_folder(folder_info&& folder, C callback) {
         std::unique_lock<std::shared_mutex> lock(folders_mutex);
         fuse_ino_t ino = folders_ino_counter += 2;
-        auto iter = folders.emplace(ino, std::move(files));
+        auto iter = folders.emplace(ino, std::move(folder));
         if (!callback(ino)) {
             folders.erase(iter.first);
         }
