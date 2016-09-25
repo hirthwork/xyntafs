@@ -1,7 +1,7 @@
 #ifndef __XYNTA__FS_HPP__
 #define __XYNTA__FS_HPP__
 
-#include <fuse_lowlevel.h>
+#include <fuse_lowlevel.h>  // fuse_ino_t
 
 #include <cstddef>          // std::size_t
 
@@ -43,7 +43,6 @@ class fs {
     std::unordered_map<fuse_ino_t, const std::string&> ino_to_tag;
     std::unordered_map<fuse_ino_t, file_info> ino_to_file;
 
-    folder_node root;
     std::unordered_map<fuse_ino_t, std::vector<fuse_ino_t>> tag_files;
 
     std::unordered_map<fuse_ino_t, folder_node> folders;
@@ -64,8 +63,9 @@ class fs {
 
     void process_dir(
         const std::vector<fuse_ino_t>& tags,
-        const std::string& root);
-    void process_file(
+        const std::string& root,
+        std::vector<fuse_ino_t>& all_files);
+    fuse_ino_t process_file(
         std::string&& filename,
         std::string&& path,
         std::vector<fuse_ino_t>&& tags);
@@ -101,12 +101,8 @@ public:
     }
 
     const folder_node& get_folder_node(fuse_ino_t ino) const {
-        if (ino == FUSE_ROOT_ID) {
-            return root;
-        } else {
-            std::shared_lock<std::shared_mutex> lock(folders_mutex);
-            return find(folders, ino);
-        }
+        std::shared_lock<std::shared_mutex> lock(folders_mutex);
+        return find(folders, ino);
     }
 
     template <class C>

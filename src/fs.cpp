@@ -1,5 +1,5 @@
 #include <dirent.h>
-#include <fuse_lowlevel.h>
+#include <fuse_lowlevel.h>  // fuse_ino_t, FUSE_ROOT_ID
 #include <stdlib.h>         // realpath, free
 #include <sys/stat.h>
 #include <sys/types.h>      // DIR
@@ -46,8 +46,9 @@ xynta::fs::fs(std::string&& root)
     , files_ino_counter{}
 {
     root.push_back('/');
-    process_dir({}, root);
-    std::sort(this->root.files.begin(), this->root.files.end());
+    std::vector<fuse_ino_t> all_files;
+    process_dir({}, root, all_files);
+    folders.emplace(FUSE_ROOT_ID, folder_node{{}, std::move(all_files)});
     for (auto& tag: tag_files) {
         std::sort(tag.second.begin(), tag.second.end());
     }
@@ -55,7 +56,8 @@ xynta::fs::fs(std::string&& root)
 
 void xynta::fs::process_dir(
     const std::vector<fuse_ino_t>& tags,
-    const std::string& root)
+    const std::string& root,
+    std::vector<fuse_ino_t>& all_files)
 {
     dir d(root.c_str());
     while (struct dirent* dirent = d.next()) {
@@ -76,14 +78,15 @@ void xynta::fs::process_dir(
                 if (pos != std::string::npos && pos + 1 < name.size()) {
                     current_tags.emplace_back(add_tag(name.substr(pos + 1)));
                 }
-                process_file(
-                    std::move(name),
-                    std::move(path),
-                    std::move(current_tags));
+                all_files.push_back(
+                    process_file(
+                        std::move(name),
+                        std::move(path),
+                        std::move(current_tags)));
             } else if (stat.st_mode & S_IFDIR) {
                 path.push_back('/');
                 current_tags.emplace_back(add_tag(std::move(name)));
-                process_dir(current_tags, path);
+                process_dir(current_tags, path, all_files);
             } else {
                 throw std::logic_error(
                     "Don't know how to process " + path
@@ -93,15 +96,14 @@ void xynta::fs::process_dir(
     }
 }
 
-void xynta::fs::process_file(
+fuse_ino_t xynta::fs::process_file(
     std::string&& filename,
     std::string&& path,
     std::vector<fuse_ino_t>&& tags)
 {
     load_tags(tags, path.c_str());
-    files_ino_counter += 2;
-    auto emplace_result =
-        name_to_ino.emplace(std::move(filename), files_ino_counter);
+    fuse_ino_t ino = files_ino_counter += 2;
+    auto emplace_result = name_to_ino.emplace(std::move(filename), ino);
     if (!emplace_result.second) {
         if (emplace_result.first->second & 1) {
             throw std::logic_error("File and tag names collision: " + path);
@@ -111,18 +113,18 @@ void xynta::fs::process_file(
                 + ino_to_file.find(emplace_result.first->second)->second.path);
         }
     }
-    root.files.push_back(files_ino_counter);
     std::sort(tags.begin(), tags.end());
     tags.erase(std::unique(tags.begin(), tags.end()), tags.end());
     for (const auto& tag: tags) {
-        tag_files[tag].push_back(files_ino_counter);
+        tag_files[tag].push_back(ino);
     }
     ino_to_file.emplace(
-        files_ino_counter,
+        ino,
         file_info{
             emplace_result.first->first,
             std::move(path),
             std::move(tags)});
+    return ino;
 }
 
 void xynta::fs::load_tags(std::vector<fuse_ino_t>& tags, const char* path) {
