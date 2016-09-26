@@ -3,73 +3,97 @@ override CFLAGS += -Wall -Wextra -Wpedantic -Werror -Wstrict-overflow=5
 override CFLAGS += $(shell pkg-config fuse --cflags)
 override CFLAGS += -DFUSE_USE_VERSION=26 -Isrc
 
-override LDFLAGS += $(shell pkg-config fuse --libs)
+GCC_VERSION = \
+    $(shell $(CXX) --version | grep -q '^g++' && \
+	$(CXX) -dumpversion | cut -d. -f1)
+OBSOLETE_COMPILER = \
+    $(shell [ -n "$(GCC_VERSION)" ] && [ "$(GCC_VERSION)" -lt 6 ] && echo true)
 
-gcc-version = \
-    $(shell $(CXX) --version | grep -q '^g++' \
-	&& $(CXX) -dumpversion | cut -d. -f1)
-obsolete-compiler = \
-    $(shell [ -n "$(gcc-version)" ] && [ "$(gcc-version)" -lt 6 ] && echo true)
-
-ifeq ($(obsolete-compiler),true)
+ifeq ($(OBSOLETE_COMPILER),true)
     override CXXFLAGS += -std=c++1y -Dshared_mutex=shared_timed_mutex
 else
     override CXXFLAGS += -std=c++1z
 endif
 
-COMPILERS_LIST = g++-4.9.3 g++-5.4.0 g++-6.2.0 clang++
+override LDFLAGS += $(shell pkg-config fuse --libs)
+override LDFLAGS += $(findstring -flto,$(CFLAGS) $(CXXFLAGS))
+override LDFLAGS += $(findstring --coverage,$(CFLAGS) $(CXXFLAGS))
 
-builddir = build
-target = $(builddir)/xynta
-headers = $(shell find src -type f -name \*.hpp)
-sources = $(shell find src -type f -name \*.cpp)
+OPTIONS = $(CXX) $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(LDFLAGS)
 
-tests = basic-listing errors
-testdir = $(builddir)/test
-tests-base = $(addprefix $(testdir)/,$(tests))
-tests-done = $(addsuffix /done,$(tests-base))
+COMPILERS = g++-4.9.3 g++-5.4.0 g++-6.2.0 clang++
 
-.PHONY: clean test full-test
+BUILDDIR = build
+XYNTA = $(BUILDDIR)/xynta
 
-$(target): Makefile $(headers) $(sources) | $(builddir)
-	$(CXX) $(CFLAGS) $(CXXFLAGS) $(sources) $(LDFLAGS) -o $@
+TESTS = basic-listing errors
+TESTSDIR = $(BUILDDIR)/test
+TESTS_BASE = $(addprefix $(TESTSDIR)/,$(TESTS))
+TESTS_DONE = $(addsuffix /done,$(TESTS_BASE))
+TESTS_RUN = $(addsuffix /run,$(TESTS_BASE))
+TESTS_PREPARE = $(addsuffix /prepare,$(TESTS_BASE))
 
-$(builddir):
-	mkdir -p $(builddir)
+SRCS = $(shell find src -type f -name \*.cpp)
+OBJS = $(patsubst src/%,$(BUILDDIR)/%,$(SRCS:.cpp=.o))
+DEPS = $(OBJS:.o=.d)
+OPTS = $(BUILDDIR)/build-options
 
-$(testdir):
-	mkdir -p $(testdir)
+.PHONY: clean test full-test force
 
-clean:
-	for mountpoint in $(tests-base); do \
-	    fusermount -q -u $$mountpoint/mount || true; \
-	done
-	rm -rf $(builddir)
+$(XYNTA): $(OBJS)
+	$(CXX) $^ $(LDFLAGS) -o $@.T
+	mv $@.T $@
 
-full-test:
-	for x in $(COMPILERS_LIST); do \
-	    /bin/echo -e "\n[Running tests for $$x]"; \
-	    $(MAKE) CXX=$$x builddir=$(builddir)/$$x test || exit 1; \
-	done
-
-test: $(tests-done)
-
-$(tests-done) : $(testdir)/%/done : $(testdir)/%/run
-	@/bin/echo -e "\n[Successfully completed test $(notdir $*)]"
-	fusermount -z -q -u $(dir $@)mount || true
-	touch $@ $(dir $@)run $(dir $@)prepare
-
-$(addsuffix /run,$(tests-base)) : $(testdir)/%/run : $(testdir)/%/prepare
-
-$(addsuffix /prepare,$(tests-base)) : %/prepare : $(target) | $(testdir)
-	@/bin/echo -e "\n[Preparing environment for test $(notdir $*)]"
-	fusermount -z -q -u $(dir $@)mount || true
-	rm -rf $(dir $@)data $(dir $@)mount
-	mkdir -p $(dir $@)data $(dir $@)mount
+$(OBJS): $(BUILDDIR)/%.o: src/%.cpp $(BUILDDIR)/%.d Makefile $(OPTS)
+	mkdir -p $(dir $@)
+	$(CXX) $(CFLAGS) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $(@:.o=.To) \
+	    -MMD -MP -MF $(@:.o=.Td) -MT '$(BUILDDIR)/$*.o'
+	mv $(@:.o=.Td) $(@:.o=.d)
+	mv $(@:.o=.To) $@
 	touch $@
 
-$(testdir)/basic-listing/run:
-	# prepare stage must be repeated both for every launch
+$(DEPS): ;
+
+-include $(DEPS)
+
+$(OPTS): force | $(BUILDDIR)
+	@echo $(OPTIONS) | cmp -s - $@ || \
+	    (echo $(OPTIONS) > $@.T && mv $@.T $@)
+
+$(BUILDDIR):
+	mkdir -p $(BUILDDIR)
+
+clean:
+	@for mountpoint in $(TESTS_BASE); do \
+	    [ -d $$mountpoint/mount ] && \
+		fusermount -z -q -u $$mountpoint/mount || true; \
+	done
+	@rm -rf $(BUILDDIR)
+
+full-test:
+	@for x in $(COMPILERS); do \
+	    /bin/echo -e "\n[Running tests for $$x]"; \
+	    $(MAKE) CXX=$$x BUILDDIR=$(BUILDDIR)/$$x test || exit 1; \
+	done
+
+test: $(TESTS_DONE)
+
+$(TESTS_DONE): $(TESTSDIR)/%/done: $(TESTSDIR)/%/run
+	@/bin/echo -e "\n[Successfully completed test $(notdir $*)]"
+	@fusermount -z -q -u $(dir $@)mount || true
+	@touch $@ $(dir $@)run $(dir $@)prepare
+
+$(TESTS_RUN): $(TESTSDIR)/%/run: $(TESTSDIR)/%/prepare
+
+$(TESTS_PREPARE): %/prepare: $(XYNTA)
+	@/bin/echo -e "\n[Preparing environment for test $(notdir $*)]"
+	@fusermount -z -q -u $(dir $@)mount || true
+	@rm -rf $(dir $@)data $(dir $@)mount
+	@mkdir -p $(dir $@)data $(dir $@)mount
+	@touch $@
+
+$(TESTSDIR)/basic-listing/run:
+	# prepare stage must be repeated for incompleted every launch
 	rm $(dir $@)prepare
 	mkdir $(dir $@)data/dir1
 	mkdir $(dir $@)data/dir2
@@ -82,7 +106,7 @@ $(testdir)/basic-listing/run:
 	setfattr -n user.xynta.tags -v 'tag1' $(dir $@)data/dir2/subdir1/file3
 	setfattr -n user.xynta.tags -v 'dir1 tag1 tag3 multi\ w\\\\rd' \
 	    $(dir $@)data/dir2/subdir1/file4
-	$(target) -d $(abspath $(dir $@)data) -- $(dir $@)mount
+	$(XYNTA) -d $(abspath $(dir $@)data) -- $(dir $@)mount
 	test "$$(/bin/echo -e 'dir1\ndir2\nfile1.xml\nfile2\nfile3\nfile4'; \
 	    /bin/echo -e 'multi w\\rd\nsubdir1\ntag1\ntag2\ntag3\nxml')" = \
 	    "$$(ls $(dir $@)mount)"
@@ -100,21 +124,21 @@ $(testdir)/basic-listing/run:
 	    /bin/echo -e 'tag1\ntag3')" = \
 	    "$$(ls $(dir $@)mount/dir2/subdir1)"
 	# test files content
-	/bin/echo "file1 content" | diff - $(dir $@)mount/file1.xml
-	/bin/echo "file1 content" | diff - $(dir $@)mount/xml/file1.xml
-	/bin/echo "file2 content" | diff - $(dir $@)mount/tag2/tag1/file2
-	/bin/echo "file3 content" | diff - $(dir $@)mount/subdir1/file3
-	/bin/echo "file4 content" | diff - $(dir $@)mount/dir1/tag3/file4
-	/bin/echo "file4 content" | diff - $(dir $@)mount/multi\ w\\rd/file4
+	/bin/echo "file1 content" | cmp - $(dir $@)mount/file1.xml
+	/bin/echo "file1 content" | cmp - $(dir $@)mount/xml/file1.xml
+	/bin/echo "file2 content" | cmp - $(dir $@)mount/tag2/tag1/file2
+	/bin/echo "file3 content" | cmp - $(dir $@)mount/subdir1/file3
+	/bin/echo "file4 content" | cmp - $(dir $@)mount/dir1/tag3/file4
+	/bin/echo "file4 content" | cmp - $(dir $@)mount/multi\ w\\rd/file4
 	# run same tests with single thread and relative path
 	fusermount -z -u $(dir $@)mount
-	$(target) -d $(dir $@)data -- $(dir $@)mount
+	$(XYNTA) -d $(dir $@)data -- $(dir $@)mount
 	# test file content again
-	/bin/echo "file1 content" | diff - $(dir $@)mount/file1.xml
-	/bin/echo "file1 content" | diff - $(dir $@)mount/xml/file1.xml
+	/bin/echo "file1 content" | cmp - $(dir $@)mount/file1.xml
+	/bin/echo "file1 content" | cmp - $(dir $@)mount/xml/file1.xml
 	touch $@
 
-$(testdir)/errors/run:
+$(TESTSDIR)/errors/run:
 	rm $(dir $@)prepare
 	/bin/echo "file1 content" > $(dir $@)data/file1
 	setfattr -n user.xynta.tags -v tag1 $(dir $@)data/file1
@@ -122,36 +146,36 @@ $(testdir)/errors/run:
 	setfattr -n user.xynta.tags -v tag2 $(dir $@)data/file2
 	# create file/tag name collision
 	/bin/echo "file3 content" > $(dir $@)data/tag1
-	echo '! $(target) -d $(dir $@)data -- $(dir $@)mount' | sh
+	echo '! $(XYNTA) -d $(dir $@)data -- $(dir $@)mount' | sh
 	rm $(dir $@)data/tag1
 	# create file/tag self collision
 	/bin/echo "file4 content" > $(dir $@)data/file4
 	setfattr -n user.xynta.tags -v file4 $(dir $@)data/file4
-	echo '! $(target) -d $(dir $@)data -- $(dir $@)mount' | sh
+	echo '! $(XYNTA) -d $(dir $@)data -- $(dir $@)mount' | sh
 	rm $(dir $@)data/file4
 	# create file names collision
 	mkdir $(dir $@)data/dir
 	/bin/echo "file5 content" > $(dir $@)data/dir/file1
-	echo '! $(target) -d $(dir $@)data -- $(dir $@)mount' | sh
+	echo '! $(XYNTA) -d $(dir $@)data -- $(dir $@)mount' | sh
 	rm -r $(dir $@)data/dir
 	# create broken symlink
 	ln -s nowhere-is-here $(dir $@)data/file6
-	echo '! $(target) -d $(dir $@)data -- $(dir $@)mount' | sh
+	echo '! $(XYNTA) -d $(dir $@)data -- $(dir $@)mount' | sh
 	rm $(dir $@)data/file6
 	# create pipe
 	mknod $(dir $@)data/fipe p
-	echo '! $(target) -d $(dir $@)data -- $(dir $@)mount' | sh
+	echo '! $(XYNTA) -d $(dir $@)data -- $(dir $@)mount' | sh
 	rm $(dir $@)data/fipe
 	# try load data from non-existing dir
-	echo '! $(target) -d $(dir $@)ndata -- $(dir $@)mount' | sh
+	echo '! $(XYNTA) -d $(dir $@)ndata -- $(dir $@)mount' | sh
 	# pass invalid option
-	echo '! $(target) -d $(dir $@)data -X -- $(dir $@)mount' | sh
+	echo '! $(XYNTA) -d $(dir $@)data -X -- $(dir $@)mount' | sh
 	# request help
-	$(target) -h
+	$(XYNTA) -h
 	# `forget' to pass data dir
-	echo '! $(target) -- $(dir $@)mount' | sh
+	echo '! $(XYNTA) -- $(dir $@)mount' | sh
 	# ok, test runtime errors on invalid paths
-	$(target) -d $(dir $@)data -- $(dir $@)mount
+	$(XYNTA) -d $(dir $@)data -- $(dir $@)mount
 	test ! -d $(dir $@)mount/tag1/tag2
 	test ! -f $(dir $@)mount/tag1/file2
 	test ! -e $(dir $@)mount/something
