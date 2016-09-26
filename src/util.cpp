@@ -8,9 +8,9 @@
 int xynta::exception_to_errno() {
     try {
         throw;
-    } catch (std::bad_alloc& e) {
+    } catch (const std::bad_alloc& e) {
         return ENOMEM;
-    } catch (std::system_error& e) {
+    } catch (const std::system_error& e) {
         return e.code().value();
     } catch (...) {
         return EINVAL;

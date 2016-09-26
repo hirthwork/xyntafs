@@ -24,16 +24,6 @@ void xynta_read(
     struct fuse_file_info* fi);
 void xynta_release(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info* fi);
 void xynta_opendir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info* fi);
-void xynta_readdir(
-    fuse_req_t req,
-    fuse_ino_t ino,
-    size_t size,
-    off_t off,
-    struct fuse_file_info* fi);
-void xynta_releasedir(
-    fuse_req_t req,
-    fuse_ino_t ino,
-    struct fuse_file_info* fi);
 
 void usage(const char* argv0, std::ostream& out) {
     out << "Usage: " << argv0
@@ -95,8 +85,8 @@ try {
     ops.read = xynta_read;
     ops.release = xynta_release;
     ops.opendir = xynta_opendir;
-    ops.readdir = xynta_readdir;
-    ops.releasedir = xynta_releasedir;
+    ops.readdir = xynta_read;
+    ops.releasedir = xynta_release;
 
     argv[optind - 1] = argv[0];
     struct fuse_args args =
@@ -131,7 +121,7 @@ try {
     }
     fuse_opt_free_args(&args);
     return rc;
-} catch (std::exception& e) {
+} catch (const std::exception& e) {
     std::cerr << e.what() << std::endl;
     return xynta::exception_to_errno();
 }
