@@ -6,8 +6,8 @@ override CFLAGS += -DFUSE_USE_VERSION=26 -Isrc
 override LDFLAGS += $(shell pkg-config fuse --libs)
 
 gcc-version = \
-    $(firstword \
-	$(subst ., ,$(shell $(CXX) --version | awk '/^g\+\+/{print $$NF;}')))
+    $(shell $(CXX) --version | grep -q '^g++' \
+	&& $(CXX) -dumpversion | cut -d. -f1)
 obsolete-compiler = \
     $(shell [ -n "$(gcc-version)" ] && [ "$(gcc-version)" -lt 6 ] && echo true)
 
