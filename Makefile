@@ -132,7 +132,7 @@ $(TESTSDIR)/basic-listing/run:
 	/bin/echo "file4 content" | cmp - $(dir $@)mount/multi\ w\\rd/file4
 	# run same tests with single thread and relative path
 	fusermount -z -u $(dir $@)mount
-	$(XYNTA) -d $(dir $@)data -- $(dir $@)mount
+	$(XYNTA) -d $(dir $@)data -- -s $(dir $@)mount
 	# test file content again
 	/bin/echo "file1 content" | cmp - $(dir $@)mount/file1.xml
 	/bin/echo "file1 content" | cmp - $(dir $@)mount/xml/file1.xml
