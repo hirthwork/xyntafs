@@ -1,12 +1,11 @@
 #include <fuse_lowlevel.h>
 #include <getopt.h>
 
-#include <cstddef>          // std::size_t
 #include <cstdlib>          // std::free
 
 #include <cstring>          // std::memset
 #include <iostream>         // std::cout, std::cerr
-#include <string>           // std::string, std::stoul
+#include <string>
 #include <utility>          // std::move
 
 #include "fs.hpp"
@@ -23,7 +22,6 @@ void xynta_read(
     off_t off,
     struct fuse_file_info* fi);
 void xynta_release(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info* fi);
-void xynta_opendir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info* fi);
 
 void usage(const char* argv0, std::ostream& out) {
     out << "Usage: " << argv0
@@ -81,10 +79,12 @@ try {
     ops.lookup = xynta_lookup;
     ops.forget = xynta_forget;
     ops.getattr = xynta_getattr;
+
     ops.open = xynta_open;
     ops.read = xynta_read;
     ops.release = xynta_release;
-    ops.opendir = xynta_opendir;
+
+    ops.opendir = xynta_open;
     ops.readdir = xynta_read;
     ops.releasedir = xynta_release;
 

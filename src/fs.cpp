@@ -1,4 +1,6 @@
-#include <dirent.h>
+#include "fs.hpp"
+
+#include <dirent.h>         // opendir, readdir, closedir
 #include <fuse_lowlevel.h>  // fuse_ino_t, FUSE_ROOT_ID
 #include <stdlib.h>         // realpath, free
 #include <sys/stat.h>
@@ -6,9 +8,8 @@
 #include <sys/xattr.h>      // getxattr
 
 #include <cerrno>
-#include <cstddef>          // std::size_t
 
-#include <algorithm>        // std::sort, std::unique, std::lower_bound
+#include <algorithm>        // std::sort, std::uniqu
 #include <memory>           // std::make_unique
 #include <stdexcept>        // std::logic_error
 #include <string>
@@ -16,7 +17,8 @@
 #include <utility>          // std::move
 #include <vector>
 
-#include "fs.hpp"
+#include "file_node.hpp"
+#include "folder_node.hpp"
 
 #define TAGS_ATTRIBUTE "user.xynta.tags"
 
@@ -48,7 +50,9 @@ xynta::fs::fs(std::string&& root)
     root.push_back('/');
     std::vector<fuse_ino_t> all_files;
     process_dir({}, root, all_files);
-    folders.emplace(FUSE_ROOT_ID, folder_node{{}, std::move(all_files)});
+    nodes.emplace(
+        FUSE_ROOT_ID,
+        std::make_unique<folder_node>(*this, std::move(all_files)));
     for (auto& tag: tag_files) {
         std::sort(tag.second.begin(), tag.second.end());
     }
@@ -118,12 +122,15 @@ fuse_ino_t xynta::fs::process_file(
     for (const auto& tag: tags) {
         tag_files[tag].push_back(ino);
     }
-    ino_to_file.emplace(
+    nodes.emplace(
         ino,
-        file_info{
-            emplace_result.first->first,
-            std::move(path),
-            std::move(tags)});
+        std::make_unique<file_node>(
+            ino_to_file.emplace(
+                ino,
+                file_info{
+                    emplace_result.first->first,
+                    std::move(path),
+                    std::move(tags)}).first->second.path));
     return ino;
 }
 
@@ -202,7 +209,7 @@ fuse_ino_t xynta::fs::add_tag(std::string&& tag) {
     if (emplace_result.second) {
         ino_to_tag.emplace(folders_ino_counter, emplace_result.first->first);
     } else if ((emplace_result.first->second & 1) == 0) {
-        throw new std::logic_error(
+        throw std::logic_error(
             "Can't add tag. There is already file "
             + ino_to_file.find(emplace_result.first->second)->second.path
             + " present.");

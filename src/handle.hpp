@@ -1,7 +1,7 @@
 #ifndef __XYNTA__FILE_HANDLE_HPP__
 #define __XYNTA__FILE_HANDLE_HPP__
 
-#include <cstddef>          // std::size_t
+#include <fuse_lowlevel.h>  // fuse_req_t
 
 namespace xynta {
 
@@ -13,7 +13,7 @@ struct handle {
 
     // returns number of bytes read, throws on error
     // fewer bytes can be returned only at EOF
-    virtual std::size_t read(char* buf, std::size_t size, std::size_t off) = 0;
+    virtual size_t read(fuse_req_t req, char* buf, size_t size, off_t off) = 0;
 };
 
 }
