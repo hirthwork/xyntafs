@@ -26,7 +26,7 @@ COMPILERS = g++-4.9.3 g++-5.4.0 g++-6.2.0 clang++
 BUILDDIR = build
 XYNTA = $(BUILDDIR)/xynta
 
-TESTS = basic-listing errors
+TESTS = basic-listing long-listing errors
 TESTSDIR = $(BUILDDIR)/test
 TESTS_BASE = $(addprefix $(TESTSDIR)/,$(TESTS))
 TESTS_DONE = $(addsuffix /done,$(TESTS_BASE))
@@ -136,6 +136,27 @@ $(TESTSDIR)/basic-listing/run:
 	# test file content again
 	/bin/echo "file1 content" | cmp - $(dir $@)mount/file1.xml
 	/bin/echo "file1 content" | cmp - $(dir $@)mount/xml/file1.xml
+	touch $@
+
+$(TESTSDIR)/long-listing/run:
+	rm $(dir $@)prepare
+	seq 1000 | while read x; do \
+	    /bin/echo "file #$$x" > $(dir $@)data/file$$x; \
+	done
+	$(XYNTA) -d $(dir $@)data -- $(dir $@)mount
+	# check all files present
+	test 1000 -eq "$$(ls $(dir $@)mount | wc -l)"
+	# check first five files
+	test "$$(/bin/echo -e 'file1\nfile10\nfile100\nfile1000\nfile101')" = \
+	    "$$(ls $(dir $@)mount | head -n5)"
+	# check last four files
+	test "$$(/bin/echo -e 'file996\nfile997\nfile998\nfile999')" = \
+	    "$$(ls $(dir $@)mount | tail -n4)"
+	# check not so last three files
+	test "$$(/bin/echo -e 'file909\nfile91\nfile910')" = \
+	    "$$(ls $(dir $@)mount | tail -n100 | head -n3)"
+	# check content
+	/bin/echo "file #777" | cmp - $(dir $@)mount/file777
 	touch $@
 
 $(TESTSDIR)/errors/run:
