@@ -18,4 +18,4 @@ before_install:
 script:
     - make test CXX="g++-4.9" CFLAGS="-O0 --coverage" LDFLAGS="-Wl,-Bstatic -lfuse -Wl,-Bdynamic -ldl"
 after_success:
-    - coveralls --gcov gcov-4.9 --gcov-options '\-lp'
+    - coveralls --gcov gcov-4.9 --gcov-options '\-aclp'
